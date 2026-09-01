@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "OmniDub - Live AI Video Dubbing & Subtitles",
+  "version": "1.0.0",
+  "description": "Real-time AI dubbing and subtitles for web videos powered by Google Gemini. Listen, translate, and dub live in 50+ languages.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "OmniDub - Live AI Dubbing"
+  },
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
+  },
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "storage",
+    "activeTab",
+    "scripting",
+    "alarms",
+    "tts"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["content_scripts/subtitle_overlay.css"],
+      "js": ["content_scripts/subtitle_overlay.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*",
+        "content_scripts/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+

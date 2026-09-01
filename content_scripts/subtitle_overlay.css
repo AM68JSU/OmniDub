@@ -1,0 +1,122 @@
+/* ==========================================================================
+   OmniDub - Floating Draggable Subtitle Overlay & Ducking
+   ========================================================================== */
+
+#omnidub-subtitle-container {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647; /* Highest z-index to stay above video players */
+  pointer-events: auto;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: opacity 0.3s ease, transform 0.1s ease;
+  max-width: 85vw;
+}
+
+#omnidub-subtitle-container.omnidub-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.omnidub-box {
+  background: rgba(11, 15, 25, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 12px;
+  padding: 10px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 16px rgba(99, 102, 241, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+  max-width: 720px;
+  cursor: grab;
+}
+
+.omnidub-box:active {
+  cursor: grabbing;
+}
+
+.omnidub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.omnidub-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #818cf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.omnidub-dot {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.omnidub-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.omnidub-btn-icon {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.omnidub-btn-icon:hover {
+  color: #f8fafc;
+}
+
+.omnidub-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.omnidub-translated {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.4;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  direction: auto;
+}
+
+.omnidub-original {
+  font-size: 13px;
+  font-weight: 400;
+  color: #94a3b8;
+  line-height: 1.3;
+  font-style: italic;
+  direction: ltr;
+}
+
+/* Subtitle sizing options */
+.omnidub-box.size-small .omnidub-translated { font-size: 15px; }
+.omnidub-box.size-large .omnidub-translated { font-size: 22px; }
+
