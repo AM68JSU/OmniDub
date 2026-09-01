@@ -25,6 +25,43 @@
   let showBilingual = false;
 
   // =========================================================================
+  // Phonetic Latin Transliteration for Fallback Non-Native Voices
+  // =========================================================================
+  function toPhoneticLatin(text) {
+    if (!text) return '';
+    if (!/[\u0600-\u06FF]/.test(text)) return text;
+    let s = text
+      .replace(/می‌|می /g, 'mi ')
+      .replace(/نمی‌|نمی /g, 'nemi ')
+      .replace(/این/g, 'in ')
+      .replace(/یک/g, 'yek ')
+      .replace(/برای/g, 'baraye ')
+      .replace(/چهار/g, 'chahar ')
+      .replace(/است/g, 'ast')
+      .replace(/شد/g, 'shod')
+      .replace(/بود/g, 'bood')
+      .replace(/اما/g, 'amma ')
+      .replace(/پس/g, 'pas ');
+
+    const map = {
+      'آ': 'aa', 'ا': 'a', 'ب': 'b', 'پ': 'p', 'ت': 't', 'ث': 's',
+      'ج': 'j', 'چ': 'ch', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'z',
+      'ر': 'r', 'ز': 'z', 'ژ': 'zh', 'س': 's', 'ش': 'sh', 'ص': 's',
+      'ض': 'z', 'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh', 'ف': 'f',
+      'ق': 'gh', 'ک': 'k', 'گ': 'g', 'ل': 'l', 'م': 'm', 'ن': 'n',
+      'و': 'o', 'ه': 'e', 'ی': 'i', 'ي': 'i', 'ك': 'k', 'ۀ': 'ye',
+      'ئ': 'e', 'ء': '', '،': ',', '؟': '?', '؛': ';'
+    };
+
+    return s
+      .split('')
+      .map((c) => (map[c] !== undefined ? map[c] : c))
+      .join('')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // =========================================================================
   // In-Tab Speech Synthesis (TTS Dubbing Engine)
   // =========================================================================
   class InTabDubbingEngine {
@@ -116,19 +153,22 @@
         textToSpeak = item.text;
         console.log(`%c[OmniDub Dubbing 🔊] Speaking with native voice "${matchedVoice.name}" (${matchedVoice.lang}):`, 'color: #10b981; font-weight: bold;', textToSpeak);
       } else {
-        // Fallback for languages not installed in OS (e.g. Persian on English Windows)
         voiceToUse = voices.find(v => v.default) || voices[0] || null;
         // Non-native voices (like Microsoft David) skip non-Latin Unicode!
         // We use phonetic Romanization so the English voice actually speaks the words!
-        textToSpeak = item.phoneticText || item.text;
+        if (item.phoneticText && !/[\u0600-\u06FF]/.test(item.phoneticText)) {
+          textToSpeak = item.phoneticText;
+        } else {
+          textToSpeak = toPhoneticLatin(item.text);
+        }
 
-        console.warn(
-          `%c[OmniDub Dubbing ⚠️] No native speech voice for "${item.targetLang}" installed in Windows. Speaking phonetic transliteration via fallback voice "${voiceToUse?.name || 'Default'}":`,
-          'color: #f59e0b; font-weight: bold;',
+        console.log(
+          `%c[OmniDub Dubbing 🔊] Speaking phonetic Romanization with fallback voice "${voiceToUse?.name || 'Default'}":`,
+          'color: #10b981; font-weight: bold;',
           textToSpeak
         );
         console.info(
-          '%c[OmniDub Dubbing 💡] Tip: To install a native Persian voice on Windows: Windows Settings > Time & Language > Speech > Add Voices.',
+          '%c[OmniDub Dubbing 💡] Tip: For natural Persian voice: Windows Settings > Time & Language > Speech > Add Voices.',
           'color: #38bdf8;'
         );
       }
@@ -363,6 +403,48 @@
     }, stepTime);
   }
 
+  let currentAiAudio = null;
+
+  function playAiAudio(dataUrl, volume = 0.95) {
+    if (currentAiAudio) {
+      try {
+        currentAiAudio.pause();
+        currentAiAudio = null;
+      } catch (e) {}
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    const audio = new Audio(dataUrl);
+    currentAiAudio = audio;
+    audio.volume = Math.max(0.1, Math.min(1.0, volume));
+
+    audio.onplay = () => {
+      startDucking(0.2);
+      console.log('%c[OmniDub AI Dubbing 🎙️] 🔊 Playing Studio Neural AI Persian Voice!', 'color: #10b981; font-weight: bold;');
+    };
+
+    audio.onended = () => {
+      endDucking();
+      currentAiAudio = null;
+      console.log('%c[OmniDub AI Dubbing ⏹️] Studio Neural speech finished.', 'color: #94a3b8;');
+    };
+
+    audio.onerror = (e) => {
+      console.warn('%c[OmniDub AI Dubbing ⚠️] Playback error, ending ducking:', 'color: #f59e0b;', e);
+      endDucking();
+      currentAiAudio = null;
+    };
+
+    audio.play().catch((err) => {
+      console.warn('%c[OmniDub AI Dubbing ⚠️] audio.play() blocked/interrupted:', 'color: #f59e0b;', err);
+      endDucking();
+      currentAiAudio = null;
+    });
+  }
+
   // =========================================================================
   // Message Listener from Background & Popup
   // =========================================================================
@@ -374,18 +456,19 @@
         break;
 
       case 'PLAY_DUBBED_AUDIO':
-        console.log('%c[OmniDub Content] 📨 Dubbing speech requested:', 'color: #ec4899;', {
-          translated: message.translatedText,
-          phonetic: message.phoneticText
-        });
-        dubbingEngine.speak({
-          text: message.translatedText,
-          phoneticText: message.phoneticText,
-          targetLang: message.targetLang,
-          volume: message.volume,
-          rate: message.rate,
-          preferredVoice: message.voiceUri
-        });
+        if (message.audioDataUrl) {
+          console.log('%c[OmniDub Content] 📨 Playing Studio Neural AI Persian Dubbing audio', 'color: #8b5cf6; font-weight: bold;');
+          playAiAudio(message.audioDataUrl, message.volume ?? 0.95);
+        } else {
+          console.log('%c[OmniDub Content] 📨 Fallback to browser TTS engine:', 'color: #ec4899;', message.translatedText);
+          dubbingEngine.speak({
+            text: message.translatedText,
+            targetLang: message.targetLang,
+            volume: message.volume,
+            rate: message.rate,
+            preferredVoice: message.voiceUri
+          });
+        }
         sendResponse({ queued: true });
         break;
 

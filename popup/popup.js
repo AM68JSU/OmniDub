@@ -50,6 +50,7 @@ const btnCloseModal = document.getElementById('btn-close-modal');
 const apiKeyForm = document.getElementById('api-key-form');
 const inputApiKey = document.getElementById('input-api-key');
 const selectModel = document.getElementById('select-model');
+const selectTtsModel = document.getElementById('select-tts-model');
 const selectChunkDuration = document.getElementById('select-chunk-duration');
 const btnToggleKeyVisibility = document.getElementById('btn-toggle-key-visibility');
 const btnTestKey = document.getElementById('btn-test-key');
@@ -109,6 +110,10 @@ async function loadStoredSettings() {
     selectModel.value = data.geminiModel;
   }
 
+  if (data.ttsModel && selectTtsModel) {
+    selectTtsModel.value = data.ttsModel;
+  }
+
   if (data.chunkDuration && selectChunkDuration) {
     selectChunkDuration.value = data.chunkDuration;
   }
@@ -138,34 +143,56 @@ async function loadStoredSettings() {
 }
 
 /**
- * Populate Voice Selector dropdown with available browser voices
+ * Populate Voice Selector dropdown with Studio Neural AI voices & available browser voices
  */
 function setupVoiceSelector() {
-  if (!selectTtsVoice || !('speechSynthesis' in window)) return;
+  if (!selectTtsVoice) return;
 
   const populate = () => {
-    const voices = window.speechSynthesis.getVoices();
-    chrome.storage.local.get(['voiceUri'], (data) => {
-      const savedUri = data.voiceUri || 'auto';
-      selectTtsVoice.innerHTML = '<option value="auto">Auto (Best Match for Language)</option>';
+    chrome.storage.local.get(['voiceUri', 'aiVoice'], (data) => {
+      const savedUri = data.voiceUri || 'gemini:Aoede';
 
-      voices.forEach((v) => {
-        const opt = document.createElement('option');
-        opt.value = v.voiceURI || v.name;
-        opt.textContent = `${v.name} (${v.lang})${v.default ? ' — Default' : ''}`;
-        if (opt.value === savedUri) opt.selected = true;
-        selectTtsVoice.appendChild(opt);
-      });
+      selectTtsVoice.innerHTML = `
+        <optgroup label="Studio Neural AI Voices (Fluent Persian & 50+ Languages)">
+          <option value="gemini:Aoede" ${savedUri === 'gemini:Aoede' ? 'selected' : ''}>Aoede (Studio AI - Warm Female) [Recommended]</option>
+          <option value="gemini:Kore" ${savedUri === 'gemini:Kore' ? 'selected' : ''}>Kore (Studio AI - Clear Female)</option>
+          <option value="gemini:Puck" ${savedUri === 'gemini:Puck' ? 'selected' : ''}>Puck (Studio AI - Energetic Male)</option>
+          <option value="gemini:Charon" ${savedUri === 'gemini:Charon' ? 'selected' : ''}>Charon (Studio AI - Deep Male)</option>
+          <option value="gemini:Fenrir" ${savedUri === 'gemini:Fenrir' ? 'selected' : ''}>Fenrir (Studio AI - Expressive Male)</option>
+          <option value="gemini:Leda" ${savedUri === 'gemini:Leda' ? 'selected' : ''}>Leda (Studio AI - Professional Female)</option>
+          <option value="gemini:Zephyr" ${savedUri === 'gemini:Zephyr' ? 'selected' : ''}>Zephyr (Studio AI - Smooth Female)</option>
+          <option value="gemini:Orus" ${savedUri === 'gemini:Orus' ? 'selected' : ''}>Orus (Studio AI - Confident Male)</option>
+        </optgroup>
+      `;
+
+      if ('speechSynthesis' in window) {
+        const browserVoices = window.speechSynthesis.getVoices();
+        if (browserVoices.length > 0) {
+          const group = document.createElement('optgroup');
+          group.label = 'Browser System Voices (Offline)';
+          browserVoices.forEach((v) => {
+            const opt = document.createElement('option');
+            opt.value = v.voiceURI || v.name;
+            opt.textContent = `${v.name} (${v.lang})${v.default ? ' — Default' : ''}`;
+            if (opt.value === savedUri) opt.selected = true;
+            group.appendChild(opt);
+          });
+          selectTtsVoice.appendChild(group);
+        }
+      }
     });
   };
 
   populate();
-  window.speechSynthesis.onvoiceschanged = populate;
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = populate;
+  }
 
   selectTtsVoice.addEventListener('change', async (e) => {
     const val = e.target.value;
-    await chrome.storage.local.set({ voiceUri: val });
-    broadcastSettings({ voiceUri: val });
+    const aiVoice = val.startsWith('gemini:') ? val.replace('gemini:', '') : 'Aoede';
+    await chrome.storage.local.set({ voiceUri: val, aiVoice });
+    broadcastSettings({ voiceUri: val, aiVoice });
   });
 }
 
@@ -331,19 +358,21 @@ function setupEventListeners() {
     if (recordingState === 'idle') {
       applyRecordingState('starting');
       try {
-        const stored = await chrome.storage.local.get(['voiceUri', 'geminiModel', 'chunkDuration']);
+        const stored = await chrome.storage.local.get(['voiceUri', 'aiVoice', 'geminiModel', 'ttsModel', 'chunkDuration']);
         const response = await chrome.runtime.sendMessage({
           type: 'START_RECORDING',
           config: {
             targetLang: currentLang,
-            model: stored.geminiModel || selectModel.value || 'gemini-2.0-flash',
+            model: stored.geminiModel || selectModel.value || 'gemini-3.7-flash',
+            ttsModel: stored.ttsModel || selectTtsModel?.value || 'gemini-2.5-flash-preview-tts',
+            aiVoice: stored.aiVoice || (stored.voiceUri?.startsWith('gemini:') ? stored.voiceUri.replace('gemini:', '') : 'Aoede'),
             chunkDuration: Number(stored.chunkDuration || selectChunkDuration?.value || 4.8),
             dubbedAudio: toggleDubbedAudio.checked,
             subtitles: toggleSubtitles.checked,
             bilingual: toggleBilingual.checked,
             volume: Number(sliderVolume.value),
             speed: Number(sliderSpeed.value),
-            voiceUri: stored.voiceUri || 'auto',
+            voiceUri: stored.voiceUri || 'gemini:Aoede',
             record: toggleRecord.checked,
             allSites: toggleAllSites.checked
           }
@@ -463,12 +492,16 @@ function setupEventListeners() {
     e.preventDefault();
     const key = inputApiKey.value.trim();
     const model = selectModel.value;
+    const ttsModel = selectTtsModel ? selectTtsModel.value : 'gemini-2.5-flash-preview-tts';
+    const chunkDuration = selectChunkDuration ? selectChunkDuration.value : '4.8';
 
     if (!key) return;
 
     await chrome.storage.local.set({
       geminiApiKey: key,
-      geminiModel: model
+      geminiModel: model,
+      ttsModel: ttsModel,
+      chunkDuration: chunkDuration
     });
 
     hasApiKey = true;
@@ -476,7 +509,7 @@ function setupEventListeners() {
     apiStatusIndicator.title = 'API Key Configured';
     missingKeyAlert.style.display = 'none';
 
-    broadcastSettings({ model });
+    broadcastSettings({ model, ttsModel, chunkDuration });
 
     apiModal.close();
     showTestStatus('', '');

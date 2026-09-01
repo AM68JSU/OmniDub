@@ -256,13 +256,14 @@ async function handleStopRecording() {
  */
 async function handleTranslationResult(data) {
   const { activeTabId, sessionConfig } = await chrome.storage.session.get(['activeTabId', 'sessionConfig']);
-  const { originalText, translatedText, targetLang } = data;
+  const { originalText, translatedText, audioDataUrl, targetLang } = data;
 
   if (!translatedText) return;
 
   console.log('%c[OmniDub SW 🤖] Translation Result Received:', 'color: #818cf8; font-weight: bold;', {
     original: originalText,
     translated: translatedText,
+    hasAiAudio: Boolean(audioDataUrl),
     targetLang
   });
 
@@ -289,6 +290,7 @@ async function handleTranslationResult(data) {
       chrome.tabs.sendMessage(activeTabId, {
         type: 'PLAY_DUBBED_AUDIO',
         translatedText,
+        audioDataUrl,
         originalText,
         targetLang,
         volume: (sessionConfig?.volume ?? 90) / 100,

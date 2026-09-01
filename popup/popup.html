@@ -214,28 +214,40 @@
         <div class="form-group">
           <label for="select-model">AI Model Selection</label>
           <select id="select-model" class="custom-select">
-            <option value="gemini-2.0-flash" selected>gemini-2.0-flash (Recommended for Free Tier — 15 RPM)</option>
-            <option value="gemini-1.5-flash">gemini-1.5-flash (High Quota — 15 RPM)</option>
-            <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Lowest Latency — 15 RPM)</option>
-            <option value="gemini-2.5-flash">gemini-2.5-flash (High Quality — 5 RPM Free Limit)</option>
-            <option value="gemini-3.7-flash">gemini-3.7-flash (Next-Gen Multimodal — 5 RPM Free Limit)</option>
-            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (Lightweight)</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Reasoning)</option>
-            <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Complex Tasks)</option>
-            <option value="gemini-1.5-pro">gemini-1.5-pro (Legacy Pro)</option>
+            <optgroup label="Gemini 3 Models">
+              <option value="gemini-3.7-flash" selected>Gemini 3.7 Flash (Latest & Most Capable)</option>
+              <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite (Fastest & Cost-Sensitive)</option>
+              <option value="gemini-3.5-flash">Gemini 3.5 Flash (Balanced Multimodal)</option>
+              <option value="gemini-3.6-flash">Gemini 3.6 Flash (General Agentic)</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (Cost-Effective Frontier)</option>
+              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (State-of-the-Art Reasoning)</option>
+              <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+            </optgroup>
+            <optgroup label="Gemini 2.5 Models">
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Price-Performance Leader)</option>
+              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (Budget-Friendly Multimodal)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Reasoning & Complex Tasks)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="select-tts-model">AI Dubbing Engine (Neural Speech)</label>
+          <select id="select-tts-model" class="custom-select">
+            <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS (Natural Studio AI Voice)</option>
+            <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Expressive Neural Voice)</option>
+            <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS (High-Fidelity Audiobook Quality)</option>
+            <option value="browser-local">Local Browser Voices (Offline)</option>
           </select>
         </div>
 
         <div class="form-group">
           <label for="select-chunk-duration">Audio Slice Duration</label>
           <select id="select-chunk-duration" class="custom-select">
-            <option value="4.8" selected>4.8s (Balanced — Recommended to Avoid 429 Errors)</option>
-            <option value="3.2">3.2s (Fast Response — Best for 15 RPM Models)</option>
-            <option value="6.5">6.5s (Longer Sentences — Safest for 5 RPM Models)</option>
+            <option value="4.8" selected>4.8s (Recommended — Balanced Quality & Quota)</option>
+            <option value="3.2">3.2s (Fast Response — Best for 3.5 Flash-Lite)</option>
+            <option value="6.5">6.5s (Long Phrases — Safest for Free Tier)</option>
           </select>
-          <small class="form-hint" style="color: #94a3b8;">
-            Tip: If you see HTTP 429 quota error, choose gemini-2.0-flash or 6.5s slice.
-          </small>
         </div>
 
         <div id="test-key-status" class="test-status hidden"></div>

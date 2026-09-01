@@ -4,7 +4,7 @@
  * chunks audio into 16kHz mono WAV segments, and dispatches to Gemini API.
  */
 
-import { translateAudioChunk } from '../services/gemini_api.js';
+import { translateAudioChunk, synthesizeGeminiSpeech } from '../services/gemini_api.js';
 import { getLanguageByCode } from '../services/language_list.js';
 
 let audioContext = null;
@@ -175,17 +175,27 @@ async function processChunk(sourceSampleRate) {
     });
 
     if (result && result.hasSpeech && result.translatedText) {
-      console.log('%c[OmniDub Offscreen] 💬 Forwarding translation to background:', 'color: #10b981;', {
+      let audioDataUrl = null;
+      if (currentConfig.dubbedAudio !== false) {
+        audioDataUrl = await synthesizeGeminiSpeech({
+          text: result.translatedText,
+          apiKey: currentConfig.apiKey,
+          voiceName: currentConfig.aiVoice || 'Aoede',
+          ttsModel: currentConfig.ttsModel || 'gemini-2.5-flash-preview-tts'
+        }).catch(() => null);
+      }
+
+      console.log('%c[OmniDub Offscreen] 💬 Forwarding translation & AI dubbing to background:', 'color: #10b981;', {
         original: result.originalText,
         translated: result.translatedText,
-        phonetic: result.phoneticText
+        hasAiAudio: Boolean(audioDataUrl)
       });
 
       chrome.runtime.sendMessage({
         type: 'NEW_TRANSLATION_RESULT',
         originalText: result.originalText,
         translatedText: result.translatedText,
-        phoneticText: result.phoneticText,
+        audioDataUrl,
         targetLang: currentConfig.targetLang || 'fa',
         timestamp: Date.now()
       }).catch((e) => console.warn('Could not forward translation result:', e));
@@ -199,7 +209,10 @@ async function processChunk(sourceSampleRate) {
       console.error('%c[OmniDub Offscreen ❌] Gemini translation error:', 'color: #ef4444;', err);
     }
   } finally {
-    isProcessingChunk = false;
+    // 2.8s gap ensures no concurrent requests and prevents rate limits
+    setTimeout(() => {
+      isProcessingChunk = false;
+    }, 2800);
   }
 }
 
