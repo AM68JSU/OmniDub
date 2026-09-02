@@ -46,7 +46,8 @@
     {
       "resources": [
         "icons/*",
-        "content_scripts/*"
+        "content_scripts/*",
+        "offscreen/*"
       ],
       "matches": ["<all_urls>"]
     }

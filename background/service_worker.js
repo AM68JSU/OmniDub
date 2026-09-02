@@ -77,6 +77,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break;
       }
 
+      case 'PLAY_DUBBED_AUDIO_CHUNK': {
+        const { activeTabId, sessionConfig } = await chrome.storage.session.get(['activeTabId', 'sessionConfig']);
+        if (activeTabId && (!sessionConfig || sessionConfig.dubbedAudio !== false)) {
+          chrome.tabs.sendMessage(activeTabId, {
+            type: 'PLAY_DUBBED_AUDIO',
+            translatedText: message.translatedText,
+            audioDataUrl: message.audioDataUrl,
+            targetLang: message.targetLang,
+            volume: (sessionConfig?.volume ?? 95) / 100,
+            rate: sessionConfig?.speed ?? 1.0,
+            voiceUri: sessionConfig?.voiceUri || 'auto'
+          }).catch(() => {});
+        }
+        sendResponse({ forwarded: true });
+        break;
+      }
+
+      case 'NEW_ORIGINAL_TRANSCRIPT': {
+        const { activeTabId } = await chrome.storage.session.get(['activeTabId']);
+        if (activeTabId) {
+          chrome.tabs.sendMessage(activeTabId, {
+            type: 'DISPLAY_SUBTITLE',
+            originalText: message.originalText
+          }).catch(() => {});
+        }
+        sendResponse({ received: true });
+        break;
+      }
+
       case 'SETTINGS_CHANGED': {
         console.log('%c[OmniDub SW] ⚙️ Settings updated:', 'color: #38bdf8;', message.settings);
         await handleSettingsUpdate(message.settings);
@@ -155,16 +184,35 @@ async function handleStartRecording(config = {}) {
       console.log('%c[OmniDub SW] Note: Script already injected or tab is restricted.', 'color: #94a3b8;');
     }
 
-    // 4. Send capture instruction to offscreen document
-    await chrome.runtime.sendMessage({
-      type: 'START_OFFSCREEN_CAPTURE',
-      streamId,
-      config: {
-        ...config,
-        apiKey,
-        model
+    // 4. Send capture instruction to offscreen document (with handshake retry)
+    let offscreenStarted = false;
+    let lastError = null;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'START_OFFSCREEN_CAPTURE',
+          streamId,
+          config: {
+            ...config,
+            apiKey,
+            model
+          }
+        });
+        if (response && response.error) {
+          throw new Error(response.error);
+        }
+        offscreenStarted = true;
+        break;
+      } catch (e) {
+        lastError = e;
+        // Wait 120ms for offscreen document scripts to load
+        await new Promise((r) => setTimeout(r, 120));
       }
-    });
+    }
+
+    if (!offscreenStarted) {
+      throw lastError || new Error('Offscreen document failed to initialize.');
+    }
 
     // 5. Update session recorder if recording is enabled
     if (config.record) {

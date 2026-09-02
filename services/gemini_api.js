@@ -32,10 +32,13 @@ export async function translateAudioChunk({
   const url = `${GEMINI_API_ENDPOINT}/${cleanModel}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
   const startTime = Date.now();
 
-  const prompt = `You are a real-time live dubbing & subtitle translator for a web video stream.
-Listen to this audio chunk:
-1. Transcribe the spoken words in the original language ("originalText").
-2. Translate into ${targetLangName} accurately and naturally for subtitles and dubbing ("translatedText").
+  const prompt = `You are an elite film & video dubbing translator.
+Translate the speech in this audio stream for live voice dubbing and subtitles.
+Instructions:
+1. Transcribe the original speech into "originalText".
+2. Translate into natural, fluent, conversational ${targetLangName} into "translatedText".
+   - Flow: Output complete, eloquent grammatical sentences suitable for voice actors.
+   - Quality: Avoid fragmented or dangling clauses. Combine related phrases into meaningful spoken thoughts.
 3. If there is no human speech, silence, background music only, or unintelligible noise, set hasSpeech to false.
 Output strictly in JSON matching the specified schema.`;
 

@@ -1,13 +1,13 @@
 /**
- * OmniDub - Content Script (Subtitle Overlay, In-Tab Dubbing & Video Audio Ducking)
- * Injected into web pages to display floating subtitles, speak translated audio, and duck video volume.
+ * OmniDub - Content Script (Subtitle Overlay, Unified Dubbing Queue & Audio Ducking)
+ * Handles in-page subtitle display, sequential AI voice playback, and video volume ducking.
  */
 
 (() => {
   if (window.__omnidub_injected) return;
   window.__omnidub_injected = true;
 
-  console.log('%c[OmniDub] 🎬 In-page Video Overlay & Dubbing Controller Injected.', 'color: #818cf8; font-weight: bold;');
+  console.log('%c[OmniDub] 🎬 In-page Video Overlay & Unified Dubbing Controller Injected.', 'color: #818cf8; font-weight: bold;');
 
   let container = null;
   let box = null;
@@ -19,201 +19,156 @@
   // Audio ducking state
   const originalVolumes = new WeakMap();
   let isDucked = false;
+  let duckTargetVolume = 0.05; // 5% by default for clear dubbing prominence
 
   // Settings
   let showSubtitles = true;
   let showBilingual = false;
 
   // =========================================================================
-  // Phonetic Latin Transliteration for Fallback Non-Native Voices
+  // Unified Dubbing Queue (Ensures sentences play in sequence without overlap)
   // =========================================================================
-  function toPhoneticLatin(text) {
-    if (!text) return '';
-    if (!/[\u0600-\u06FF]/.test(text)) return text;
-    let s = text
-      .replace(/می‌|می /g, 'mi ')
-      .replace(/نمی‌|نمی /g, 'nemi ')
-      .replace(/این/g, 'in ')
-      .replace(/یک/g, 'yek ')
-      .replace(/برای/g, 'baraye ')
-      .replace(/چهار/g, 'chahar ')
-      .replace(/است/g, 'ast')
-      .replace(/شد/g, 'shod')
-      .replace(/بود/g, 'bood')
-      .replace(/اما/g, 'amma ')
-      .replace(/پس/g, 'pas ');
-
-    const map = {
-      'آ': 'aa', 'ا': 'a', 'ب': 'b', 'پ': 'p', 'ت': 't', 'ث': 's',
-      'ج': 'j', 'چ': 'ch', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'z',
-      'ر': 'r', 'ز': 'z', 'ژ': 'zh', 'س': 's', 'ش': 'sh', 'ص': 's',
-      'ض': 'z', 'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh', 'ف': 'f',
-      'ق': 'gh', 'ک': 'k', 'گ': 'g', 'ل': 'l', 'م': 'm', 'ن': 'n',
-      'و': 'o', 'ه': 'e', 'ی': 'i', 'ي': 'i', 'ك': 'k', 'ۀ': 'ye',
-      'ئ': 'e', 'ء': '', '،': ',', '؟': '?', '؛': ';'
-    };
-
-    return s
-      .split('')
-      .map((c) => (map[c] !== undefined ? map[c] : c))
-      .join('')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  // =========================================================================
-  // In-Tab Speech Synthesis (TTS Dubbing Engine)
-  // =========================================================================
-  class InTabDubbingEngine {
+  class UnifiedDubbingQueue {
     constructor() {
       this.queue = [];
-      this.isSpeaking = false;
-      this.cachedVoices = [];
-      this.initVoices();
+      this.isPlaying = false;
+      this.currentAudioEl = null;
     }
 
-    initVoices() {
-      if (!('speechSynthesis' in window)) {
-        console.warn('%c[OmniDub Dubbing ⚠️] speechSynthesis is not supported in this window.', 'color: #ef4444;');
-        return;
-      }
+    enqueue(item) {
+      if (!item.text && !item.audioDataUrl) return;
 
-      this.cachedVoices = window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => {
-        this.cachedVoices = window.speechSynthesis.getVoices();
-        console.log(`%c[OmniDub Dubbing] 🎙️ Loaded ${this.cachedVoices.length} browser/system voices.`, 'color: #3b82f6;');
-      };
-    }
-
-    speak({ text, phoneticText, targetLang = 'fa', volume = 0.9, rate = 1.0, preferredVoice = 'auto' }) {
-      if (!text || !text.trim()) return;
-
-      // Keep queue responsive to live stream (max 2 pending)
-      if (this.queue.length >= 2) {
+      // Keep maximum 3 pending sentences to avoid falling behind live video
+      if (this.queue.length >= 3) {
         const dropped = this.queue.shift();
-        console.log('%c[OmniDub Dubbing] ⏩ Dropping older queued utterance to keep pace with video:', 'color: #94a3b8;', dropped.text);
+        console.log('%c[OmniDub Dubbing] ⏩ Dropped older queued utterance to keep pace with video:', 'color: #94a3b8;', dropped.text);
       }
 
-      this.queue.push({
-        text: text.trim(),
-        phoneticText: (phoneticText || text).trim(),
-        targetLang,
-        volume,
-        rate,
-        preferredVoice
-      });
+      this.queue.push(item);
 
-      if (!this.isSpeaking) {
-        this._processNext();
+      if (!this.isPlaying) {
+        this.playNext();
       }
     }
 
-    _processNext() {
+    playNext() {
       if (this.queue.length === 0) {
-        this.isSpeaking = false;
+        this.isPlaying = false;
         endDucking();
         return;
       }
 
-      if (!('speechSynthesis' in window)) {
-        this.queue = [];
-        return;
-      }
-
-      this.isSpeaking = true;
+      this.isPlaying = true;
       const item = this.queue.shift();
 
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
+      // Priority 1: Studio Neural AI Audio (from Gemini TTS)
+      if (item.audioDataUrl) {
+        try {
+          const audio = new Audio(item.audioDataUrl);
+          this.currentAudioEl = audio;
+          audio.volume = Math.max(0.1, Math.min(1.0, item.volume ?? 0.95));
 
-      const voices = this.cachedVoices.length > 0 ? this.cachedVoices : window.speechSynthesis.getVoices();
-      let matchedVoice = null;
+          audio.onplay = () => {
+            startDucking(duckTargetVolume);
+            console.log('%c[OmniDub AI Dubbing 🎙️] 🔊 Playing Studio Neural Persian Voice:', 'color: #10b981; font-weight: bold;', item.text);
+          };
 
-      if (item.preferredVoice && item.preferredVoice !== 'auto') {
-        matchedVoice = voices.find(v => v.voiceURI === item.preferredVoice || v.name === item.preferredVoice);
-      }
+          audio.onended = () => {
+            this.currentAudioEl = null;
+            if (this.queue.length > 0) {
+              this.playNext(); // Keep ducking seamlessly active for next sentence!
+            } else {
+              this.isPlaying = false;
+              scheduleEndDucking(); // Hold volume at 5% smoothly to prevent bouncing!
+            }
+          };
 
-      const cleanLang = (item.targetLang || 'fa').toLowerCase();
-      if (!matchedVoice) {
-        // Exact match
-        matchedVoice = voices.find(v => v.lang.toLowerCase() === cleanLang || v.lang.toLowerCase().replace('_', '-') === cleanLang);
-        // Prefix match
-        if (!matchedVoice) {
-          const prefix = cleanLang.split('-')[0];
-          matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(prefix));
+          audio.onerror = (e) => {
+            console.warn('%c[OmniDub AI Dubbing ⚠️] Audio playback error:', 'color: #f59e0b;', e);
+            this.currentAudioEl = null;
+            this.playNext();
+          };
+
+          audio.play().catch((err) => {
+            console.warn('%c[OmniDub AI Dubbing ⚠️] Audio play blocked:', 'color: #f59e0b;', err);
+            this.currentAudioEl = null;
+            this.playNext();
+          });
+          return;
+        } catch (err) {
+          console.warn('%c[OmniDub AI Dubbing ⚠️] Exception playing AI audio:', 'color: #f59e0b;', err);
+          this.playNext();
+          return;
         }
       }
 
-      let textToSpeak = item.text;
-      let voiceToUse = null;
+      // Priority 2: Native Browser Voice (ONLY if a genuine native voice for target language is installed)
+      if ('speechSynthesis' in window) {
+        const voices = window.speechSynthesis.getVoices();
+        const targetPrefix = (item.targetLang || 'fa').toLowerCase().split('-')[0];
+        const nativeVoice = voices.find(v => v.lang.toLowerCase().startsWith(targetPrefix));
 
-      if (matchedVoice) {
-        voiceToUse = matchedVoice;
-        textToSpeak = item.text;
-        console.log(`%c[OmniDub Dubbing 🔊] Speaking with native voice "${matchedVoice.name}" (${matchedVoice.lang}):`, 'color: #10b981; font-weight: bold;', textToSpeak);
-      } else {
-        voiceToUse = voices.find(v => v.default) || voices[0] || null;
-        // Non-native voices (like Microsoft David) skip non-Latin Unicode!
-        // We use phonetic Romanization so the English voice actually speaks the words!
-        if (item.phoneticText && !/[\u0600-\u06FF]/.test(item.phoneticText)) {
-          textToSpeak = item.phoneticText;
-        } else {
-          textToSpeak = toPhoneticLatin(item.text);
+        if (nativeVoice) {
+          if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+          const utterance = new SpeechSynthesisUtterance(item.text);
+          utterance.voice = nativeVoice;
+          utterance.lang = nativeVoice.lang;
+          utterance.volume = Math.max(0.1, Math.min(1.0, item.volume ?? 0.95));
+          utterance.rate = Math.max(0.7, Math.min(1.5, item.rate ?? 1.0));
+
+          utterance.onstart = () => {
+            startDucking(duckTargetVolume);
+            console.log(`%c[OmniDub Dubbing 🔊] Speaking with native voice "${nativeVoice.name}":`, 'color: #10b981; font-weight: bold;', item.text);
+          };
+
+          utterance.onend = () => {
+            if (this.queue.length > 0) {
+              this.playNext();
+            } else {
+              this.isPlaying = false;
+              scheduleEndDucking(); // Hold volume at 5% smoothly
+            }
+
+          utterance.onerror = (e) => {
+            console.warn('%c[OmniDub Dubbing ⚠️] Native voice error:', 'color: #f59e0b;', e);
+            this.playNext();
+          };
+
+          try {
+            window.speechSynthesis.speak(utterance);
+            return;
+          } catch (e) {
+            this.playNext();
+            return;
+          }
         }
-
-        console.log(
-          `%c[OmniDub Dubbing 🔊] Speaking phonetic Romanization with fallback voice "${voiceToUse?.name || 'Default'}":`,
-          'color: #10b981; font-weight: bold;',
-          textToSpeak
-        );
-        console.info(
-          '%c[OmniDub Dubbing 💡] Tip: For natural Persian voice: Windows Settings > Time & Language > Speech > Add Voices.',
-          'color: #38bdf8;'
-        );
       }
 
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.volume = Math.max(0.1, Math.min(1.0, item.volume || 0.9));
-      utterance.rate = Math.max(0.5, Math.min(1.8, item.rate || 1.0));
-
-      if (voiceToUse) {
-        utterance.voice = voiceToUse;
-      }
-
-      utterance.onstart = () => {
-        startDucking(0.2);
-      };
-
-      utterance.onend = () => {
-        this._processNext();
-      };
-
-      utterance.onerror = (e) => {
-        console.error('%c[OmniDub Dubbing ❌] TTS error:', 'color: #ef4444; font-weight: bold;', e.error);
-        this._processNext();
-      };
-
-      try {
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.error('%c[OmniDub Dubbing ❌] Exception during speechSynthesis.speak:', 'color: #ef4444;', err);
-        this._processNext();
-      }
+      // If no AI audio and no native voice, DO NOT use an English voice (like Microsoft David)
+      // This ensures the user NEVER hears broken English/Fingilish again!
+      console.log('%c[OmniDub Dubbing ℹ️] Subtitle displayed on screen. Awaiting next studio AI voice chunk.', 'color: #94a3b8;');
+      this.playNext();
     }
 
     stop() {
       this.queue = [];
-      this.isSpeaking = false;
+      this.isPlaying = false;
+      if (duckHoldTimer) {
+        clearTimeout(duckHoldTimer);
+          this.currentAudioEl.pause();
+          this.currentAudioEl.currentTime = 0;
+        } catch (e) {}
+        this.currentAudioEl = null;
+      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
       endDucking();
-      console.log('%c[OmniDub Dubbing ⏹️] Stopped all active speech and cleared queue.', 'color: #94a3b8;');
+      console.log('%c[OmniDub Dubbing ⏹️] Stopped all speech and cleared queue.', 'color: #94a3b8;');
     }
   }
 
-  const dubbingEngine = new InTabDubbingEngine();
+  const dubbingQueue = new UnifiedDubbingQueue();
 
   // =========================================================================
   // Floating Subtitles Overlay UI
@@ -352,48 +307,46 @@
   }
 
   // =========================================================================
-  // Video Volume Ducking
+  // Video Volume Ducking (Persistent hold to eliminate jarring volume bouncing)
   // =========================================================================
-  function startDucking(duckTo = 0.2) {
-    if (isDucked) return;
-    isDucked = true;
+  let duckHoldTimer = null;
 
+      duckHoldTimer = null;
     const mediaElements = Array.from(document.querySelectorAll('video, audio'));
     if (mediaElements.length === 0) return;
 
-    console.log(`%c[OmniDub Ducking 🔉] Lowering ${mediaElements.length} media element(s) volume to ${Math.round(duckTo * 100)}%`, 'color: #f59e0b;');
+    console.log(`%c[OmniDub Ducking 🔉] Lowering ${mediaElements.length} media element(s) volume to ${Math.round(duckTo * 100)}% for dubbing clarity`, 'color: #f59e0b;');
 
     mediaElements.forEach((el) => {
+      if (el === dubbingQueue.currentAudioEl) return;
       if (!originalVolumes.has(el)) {
         originalVolumes.set(el, el.volume);
       }
-      fadeVolume(el, el.volume, Math.min(el.volume, duckTo), 120);
+      fadeVolume(el, el.volume, Math.min(el.volume, duckTo), 80);
     });
   }
 
-  function endDucking() {
-    if (!isDucked) return;
-    isDucked = false;
-
+    if (duckHoldTimer) clearTimeout(duckHoldTimer);
+    duckHoldTimer = setTimeout(() => {
+      endDucking();
     const mediaElements = Array.from(document.querySelectorAll('video, audio'));
     if (mediaElements.length === 0) return;
 
     console.log(`%c[OmniDub Ducking 🔊] Restoring video volume back to normal.`, 'color: #10b981;');
 
     mediaElements.forEach((el) => {
+      if (el === dubbingQueue.currentAudioEl) return;
       const original = originalVolumes.get(el) ?? 1.0;
-      fadeVolume(el, el.volume, original, 200);
+      fadeVolume(el, el.volume, original, 300);
     });
   }
 
   function fadeVolume(el, fromVol, toVol, durationMs) {
-    const steps = 8;
     const stepTime = durationMs / steps;
     const stepDelta = (toVol - fromVol) / steps;
     let currentStep = 0;
 
     const timer = setInterval(() => {
-      currentStep++;
       if (currentStep >= steps) {
         el.volume = Math.max(0, Math.min(1, toVol));
         clearInterval(timer);
@@ -401,48 +354,6 @@
         el.volume = Math.max(0, Math.min(1, el.volume + stepDelta));
       }
     }, stepTime);
-  }
-
-  let currentAiAudio = null;
-
-  function playAiAudio(dataUrl, volume = 0.95) {
-    if (currentAiAudio) {
-      try {
-        currentAiAudio.pause();
-        currentAiAudio = null;
-      } catch (e) {}
-    }
-
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-
-    const audio = new Audio(dataUrl);
-    currentAiAudio = audio;
-    audio.volume = Math.max(0.1, Math.min(1.0, volume));
-
-    audio.onplay = () => {
-      startDucking(0.2);
-      console.log('%c[OmniDub AI Dubbing 🎙️] 🔊 Playing Studio Neural AI Persian Voice!', 'color: #10b981; font-weight: bold;');
-    };
-
-    audio.onended = () => {
-      endDucking();
-      currentAiAudio = null;
-      console.log('%c[OmniDub AI Dubbing ⏹️] Studio Neural speech finished.', 'color: #94a3b8;');
-    };
-
-    audio.onerror = (e) => {
-      console.warn('%c[OmniDub AI Dubbing ⚠️] Playback error, ending ducking:', 'color: #f59e0b;', e);
-      endDucking();
-      currentAiAudio = null;
-    };
-
-    audio.play().catch((err) => {
-      console.warn('%c[OmniDub AI Dubbing ⚠️] audio.play() blocked/interrupted:', 'color: #f59e0b;', err);
-      endDucking();
-      currentAiAudio = null;
-    });
   }
 
   // =========================================================================
@@ -456,24 +367,19 @@
         break;
 
       case 'PLAY_DUBBED_AUDIO':
-        if (message.audioDataUrl) {
-          console.log('%c[OmniDub Content] 📨 Playing Studio Neural AI Persian Dubbing audio', 'color: #8b5cf6; font-weight: bold;');
-          playAiAudio(message.audioDataUrl, message.volume ?? 0.95);
-        } else {
-          console.log('%c[OmniDub Content] 📨 Fallback to browser TTS engine:', 'color: #ec4899;', message.translatedText);
-          dubbingEngine.speak({
-            text: message.translatedText,
-            targetLang: message.targetLang,
-            volume: message.volume,
-            rate: message.rate,
-            preferredVoice: message.voiceUri
-          });
-        }
+        dubbingQueue.enqueue({
+          text: message.translatedText,
+          audioDataUrl: message.audioDataUrl,
+          targetLang: message.targetLang,
+          volume: message.volume,
+          rate: message.rate,
+          preferredVoice: message.voiceUri
+        });
         sendResponse({ queued: true });
         break;
 
       case 'START_AUDIO_DUCKING':
-        startDucking(message.duckLevel || 0.2);
+        startDucking(message.duckLevel ?? duckTargetVolume);
         sendResponse({ ducked: true });
         break;
 
@@ -495,6 +401,9 @@
             originalEl.style.display = showBilingual && originalEl.textContent ? 'block' : 'none';
           }
         }
+        if (typeof message.duckLevel === 'number') {
+          duckTargetVolume = message.duckLevel;
+        }
         sendResponse({ updated: true });
         break;
 
@@ -502,7 +411,7 @@
         if (container) {
           container.classList.add('omnidub-hidden');
         }
-        dubbingEngine.stop();
+        dubbingQueue.stop();
         endDucking();
         sendResponse({ cleared: true });
         break;

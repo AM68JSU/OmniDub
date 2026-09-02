@@ -52,6 +52,7 @@ const inputApiKey = document.getElementById('input-api-key');
 const selectModel = document.getElementById('select-model');
 const selectTtsModel = document.getElementById('select-tts-model');
 const selectChunkDuration = document.getElementById('select-chunk-duration');
+const selectDuckLevel = document.getElementById('select-duck-level');
 const btnToggleKeyVisibility = document.getElementById('btn-toggle-key-visibility');
 const btnTestKey = document.getElementById('btn-test-key');
 const testKeyStatus = document.getElementById('test-key-status');
@@ -116,6 +117,10 @@ async function loadStoredSettings() {
 
   if (data.chunkDuration && selectChunkDuration) {
     selectChunkDuration.value = data.chunkDuration;
+  }
+
+  if (data.duckLevel && selectDuckLevel) {
+    selectDuckLevel.value = data.duckLevel;
   }
 
   // Selected Language
@@ -358,15 +363,16 @@ function setupEventListeners() {
     if (recordingState === 'idle') {
       applyRecordingState('starting');
       try {
-        const stored = await chrome.storage.local.get(['voiceUri', 'aiVoice', 'geminiModel', 'ttsModel', 'chunkDuration']);
+        const stored = await chrome.storage.local.get(['voiceUri', 'aiVoice', 'geminiModel', 'ttsModel', 'chunkDuration', 'duckLevel']);
         const response = await chrome.runtime.sendMessage({
           type: 'START_RECORDING',
           config: {
             targetLang: currentLang,
-            model: stored.geminiModel || selectModel.value || 'gemini-3.7-flash',
+            model: stored.geminiModel || selectModel.value || 'gemini-3.5-live-translate-preview',
             ttsModel: stored.ttsModel || selectTtsModel?.value || 'gemini-2.5-flash-preview-tts',
             aiVoice: stored.aiVoice || (stored.voiceUri?.startsWith('gemini:') ? stored.voiceUri.replace('gemini:', '') : 'Aoede'),
-            chunkDuration: Number(stored.chunkDuration || selectChunkDuration?.value || 4.8),
+            chunkDuration: Number(stored.chunkDuration || selectChunkDuration?.value || 2.4),
+            duckLevel: Number(stored.duckLevel || selectDuckLevel?.value || 0.05),
             dubbedAudio: toggleDubbedAudio.checked,
             subtitles: toggleSubtitles.checked,
             bilingual: toggleBilingual.checked,
@@ -441,6 +447,14 @@ function setupEventListeners() {
     broadcastSettings({ allSites: e.target.checked });
   });
 
+  if (selectDuckLevel) {
+    selectDuckLevel.addEventListener('change', async (e) => {
+      const val = Number(e.target.value);
+      await chrome.storage.local.set({ duckLevel: val });
+      broadcastSettings({ duckLevel: val });
+    });
+  }
+
   // Gemini API Key Modal
   btnApiModal.addEventListener('click', () => openApiModal());
   btnQuickConfig.addEventListener('click', () => openApiModal());
@@ -464,6 +478,85 @@ function setupEventListeners() {
     }
 
     const model = selectModel.value;
+
+    // Test Gemini Live models via WebSocket
+    if (model.includes('live')) {
+      showTestStatus(`Connecting to Gemini Live WebSocket for ${model}...`, 'testing');
+      const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${encodeURIComponent(key)}`;
+      let wsResolved = false;
+
+      try {
+        const ws = new WebSocket(endpoint);
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({
+            setup: {
+              model: `models/${model}`,
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                translationConfig: {
+                  targetLanguageCode: 'fa',
+                  echoTargetLanguage: true
+                }
+              }
+            }
+          }));
+        };
+
+        ws.onmessage = async (e) => {
+          try {
+            let text = e.data;
+            if (text instanceof Blob) {
+              text = await text.text();
+            } else if (text instanceof ArrayBuffer) {
+              text = new TextDecoder().decode(text);
+            }
+            const data = JSON.parse(text);
+            console.log('%c[OmniDub WS Test Message]', 'color: #3b82f6;', data);
+            if (data.setupComplete || data.setup_complete) {
+              wsResolved = true;
+              showTestStatus(`Live Stream Connected! ${model} is active and ready for real-time dubbing.`, 'success');
+              ws.close(1000, 'Test completed');
+            } else if (data.error) {
+              wsResolved = true;
+              showTestStatus(`Validation Error: ${data.error.message || JSON.stringify(data.error)}`, 'error');
+              ws.close();
+            }
+          } catch (err) {
+            console.warn('[OmniDub Test WS Parse Error]', err);
+          }
+        };
+
+        ws.onerror = (e) => {
+          if (!wsResolved) {
+            showTestStatus(`Live WebSocket connection error. Please verify network/VPN.`, 'error');
+          }
+        };
+
+        ws.onclose = (e) => {
+          if (!wsResolved) {
+            if (e.code === 1000) {
+              // Code 1000 is WS_NORMAL_CLOSURE - connection and setup was clean!
+              showTestStatus(`Live Stream Connected! ${model} is active and verified.`, 'success');
+            } else {
+              showTestStatus(`Live connection closed (Code ${e.code}: ${e.reason || 'Check API key permissions'})`, 'error');
+            }
+          }
+        };
+
+        setTimeout(() => {
+          if (!wsResolved && ws.readyState === WebSocket.OPEN) {
+            ws.close();
+            showTestStatus('Connection timed out. Please check network/VPN.', 'error');
+          }
+        }, 7000);
+      } catch (err) {
+        showTestStatus(`WebSocket initialization error: ${err.message}`, 'error');
+      }
+      return;
+    }
+
+    // Test Standard REST Models
     showTestStatus(`Testing connection with ${model}...`, 'testing');
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
