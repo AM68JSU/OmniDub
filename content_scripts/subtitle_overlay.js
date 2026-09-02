@@ -128,6 +128,7 @@
               this.isPlaying = false;
               scheduleEndDucking(); // Hold volume at 5% smoothly
             }
+          };
 
           utterance.onerror = (e) => {
             console.warn('%c[OmniDub Dubbing ⚠️] Native voice error:', 'color: #f59e0b;', e);
@@ -155,6 +156,10 @@
       this.isPlaying = false;
       if (duckHoldTimer) {
         clearTimeout(duckHoldTimer);
+        duckHoldTimer = null;
+      }
+      if (this.currentAudioEl) {
+        try {
           this.currentAudioEl.pause();
           this.currentAudioEl.currentTime = 0;
         } catch (e) {}
@@ -310,8 +315,17 @@
   // Video Volume Ducking (Persistent hold to eliminate jarring volume bouncing)
   // =========================================================================
   let duckHoldTimer = null;
+  const DUCK_HOLD_MS = 2600; // Hold volume low for 2.6s after speech to prevent jumping
 
+  function startDucking(duckTo = duckTargetVolume) {
+    if (duckHoldTimer) {
+      clearTimeout(duckHoldTimer);
       duckHoldTimer = null;
+    }
+
+    if (isDucked) return;
+    isDucked = true;
+
     const mediaElements = Array.from(document.querySelectorAll('video, audio'));
     if (mediaElements.length === 0) return;
 
@@ -326,9 +340,18 @@
     });
   }
 
+  function scheduleEndDucking(delayMs = DUCK_HOLD_MS) {
     if (duckHoldTimer) clearTimeout(duckHoldTimer);
     duckHoldTimer = setTimeout(() => {
       endDucking();
+      duckHoldTimer = null;
+    }, delayMs);
+  }
+
+  function endDucking() {
+    if (!isDucked) return;
+    isDucked = false;
+
     const mediaElements = Array.from(document.querySelectorAll('video, audio'));
     if (mediaElements.length === 0) return;
 
@@ -342,11 +365,13 @@
   }
 
   function fadeVolume(el, fromVol, toVol, durationMs) {
+    const steps = 10;
     const stepTime = durationMs / steps;
     const stepDelta = (toVol - fromVol) / steps;
     let currentStep = 0;
 
     const timer = setInterval(() => {
+      currentStep++;
       if (currentStep >= steps) {
         el.volume = Math.max(0, Math.min(1, toVol));
         clearInterval(timer);
