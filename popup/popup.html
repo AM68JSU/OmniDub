@@ -221,46 +221,13 @@
         </div>
 
         <div class="form-group">
-          <label for="select-model">AI Model Selection</label>
+          <label for="select-model">AI Live Dubbing Model</label>
           <select id="select-model" class="custom-select">
-            <optgroup label="🌟 Gemini Live API (Speech-to-Speech Streaming)">
-              <option value="gemini-3.5-live-translate-preview" selected>Gemini 3.5 Live Translate (Continuous Interpreter) [Recommended]</option>
-            </optgroup>
-            <optgroup label="Gemini 3 Models (Batch)">
-              <option value="gemini-3.7-flash">Gemini 3.7 Flash (Latest & Most Capable)</option>
-              <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite (Fastest & Cost-Sensitive)</option>
-              <option value="gemini-3.5-flash">Gemini 3.5 Flash (Balanced Multimodal)</option>
-              <option value="gemini-3.6-flash">Gemini 3.6 Flash (General Agentic)</option>
-              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (Cost-Effective Frontier)</option>
-              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (State-of-the-Art Reasoning)</option>
-              <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-            </optgroup>
-            <optgroup label="Gemini 2.5 Models">
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Price-Performance Leader)</option>
-              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (Budget-Friendly Multimodal)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Reasoning & Complex Tasks)</option>
-            </optgroup>
+            <option value="gemini-3.5-live-translate-preview" selected>Gemini 3.5 Live Translate (Google Real-Time Speech-to-Speech)</option>
           </select>
-        </div>
-
-        <div class="form-group">
-          <label for="select-tts-model">AI Dubbing Engine (Neural Speech)</label>
-          <select id="select-tts-model" class="custom-select">
-            <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS (Natural Studio AI Voice)</option>
-            <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Expressive Neural Voice)</option>
-            <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS (High-Fidelity Audiobook Quality)</option>
-            <option value="browser-local">Local Browser Voices (Offline)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="select-chunk-duration">Audio Slice Duration</label>
-          <select id="select-chunk-duration" class="custom-select">
-            <option value="2.4" selected>2.4s (Live Instant — Sentence by Sentence) [Recommended]</option>
-            <option value="2.0">2.0s (Fastest Live Response)</option>
-            <option value="3.5">3.5s (Full Phrases)</option>
-            <option value="4.8">4.8s (Balanced)</option>
-          </select>
+          <small class="form-hint" style="color: #10b981; font-weight: 500; font-size: 11px;">
+            ⚡ Official Google Gemini Live API — Ultra-low latency voice-to-voice stream.
+          </small>
         </div>
 
         <div id="test-key-status" class="test-status hidden"></div>

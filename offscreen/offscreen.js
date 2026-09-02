@@ -20,10 +20,10 @@ let currentConfig = null;
 let liveClient = null;
 let streamPlayer = null;
 
-// Streaming audio accumulation for 100ms 16kHz PCM chunks
+// Streaming audio accumulation for ultra-low latency 64ms 16kHz PCM chunks
 let pcm100msBuffer = [];
 let pcm100msSampleCount = 0;
-const SAMPLES_PER_100MS = 1600; // 100ms at 16kHz
+const SAMPLES_PER_CHUNK = 1024; // 64ms at 16kHz for ultra-low latency streaming
 
 // Batch mode fallback variables
 let batchBuffer = [];
@@ -36,9 +36,14 @@ let lastTranslatedText = '';
  * Continuous PCM Stream Player for 24kHz audio from Gemini Live
  */
 class StreamAudioPlayer {
-  constructor(ctx) {
+  constructor(ctx, speed = 1.08) {
     this.ctx = ctx;
+    this.speed = Math.max(0.95, Math.min(1.4, Number(speed) || 1.08));
     this.nextPlayTime = 0;
+  }
+
+  setSpeed(speed) {
+    this.speed = Math.max(0.95, Math.min(1.4, Number(speed) || 1.08));
   }
 
   playChunk(base64Pcm24k) {
@@ -61,12 +66,19 @@ class StreamAudioPlayer {
 
       const source = this.ctx.createBufferSource();
       source.buffer = audioBuffer;
+      source.playbackRate.value = this.speed; // Slight tempo boost to keep pace with video
       source.connect(this.ctx.destination);
 
       const now = this.ctx.currentTime;
-      const startTime = Math.max(now, this.nextPlayTime);
+      // Ultra-low latency drift lock: if nextPlayTime drifted behind now or > 160ms ahead, lock to now + 10ms
+      let startTime = this.nextPlayTime;
+      if (startTime < now || (startTime - now > 0.16)) {
+        startTime = now + 0.01;
+      }
+
       source.start(startTime);
-      this.nextPlayTime = startTime + audioBuffer.duration;
+      const effectiveDuration = audioBuffer.duration / this.speed;
+      this.nextPlayTime = startTime + effectiveDuration;
     } catch (e) {
       console.warn('[OmniDub StreamPlayer] PCM chunk decode error:', e);
     }
@@ -96,6 +108,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (gainNode) {
         const duck = Number(currentConfig.duckLevel ?? 0.05);
         gainNode.gain.value = duck;
+      }
+      if (streamPlayer && currentConfig.speed) {
+        streamPlayer.setSpeed(currentConfig.speed);
       }
       console.log('%c[OmniDub Offscreen] ⚙️ Configuration updated:', 'color: #38bdf8;', currentConfig);
     }
@@ -144,7 +159,7 @@ async function startCapture(streamId, config) {
     sourceNode.connect(gainNode);
     gainNode.connect(audioContext.destination);
 
-    streamPlayer = new StreamAudioPlayer(audioContext);
+    streamPlayer = new StreamAudioPlayer(audioContext, currentConfig.speed || 1.08);
 
     // Connect to Gemini Live Translation API if live model is selected (default)
     if (isLiveModel && currentConfig.apiKey) {
@@ -201,7 +216,7 @@ async function startCapture(streamId, config) {
         pcm100msBuffer.push(downsampled);
         pcm100msSampleCount += downsampled.length;
 
-        if (pcm100msSampleCount >= SAMPLES_PER_100MS) {
+        if (pcm100msSampleCount >= SAMPLES_PER_CHUNK) {
           const merged = new Float32Array(pcm100msSampleCount);
           let offset = 0;
           for (const c of pcm100msBuffer) {

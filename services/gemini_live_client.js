@@ -73,23 +73,29 @@ export class GeminiLiveTranslateClient {
    * Send setup message for gemini-3.5-live-translate-preview
    */
   sendSetupMessage() {
+    const generationConfig = {
+      responseModalities: ['AUDIO'],
+      translationConfig: {
+        targetLanguageCode: this.targetLang || 'fa',
+        echoTargetLanguage: true
+      }
+    };
+
+    const voice = (this.voiceName || 'Aoede').trim();
+    if (voice && voice.toLowerCase() !== 'auto') {
+      generationConfig.speechConfig = {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: voice
+          }
+        }
+      };
+    }
+
     const setup = {
       setup: {
         model: 'models/gemini-3.5-live-translate-preview',
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: this.voiceName || 'Aoede'
-              }
-            }
-          },
-          translationConfig: {
-            targetLanguageCode: this.targetLang || 'fa',
-            echoTargetLanguage: true
-          }
-        }
+        generationConfig
       }
     };
 

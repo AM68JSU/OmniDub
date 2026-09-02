@@ -158,15 +158,21 @@ function setupVoiceSelector() {
       const savedUri = data.voiceUri || 'gemini:Aoede';
 
       selectTtsVoice.innerHTML = `
-        <optgroup label="Studio Neural AI Voices (Fluent Persian & 50+ Languages)">
-          <option value="gemini:Aoede" ${savedUri === 'gemini:Aoede' ? 'selected' : ''}>Aoede (Studio AI - Warm Female) [Recommended]</option>
-          <option value="gemini:Kore" ${savedUri === 'gemini:Kore' ? 'selected' : ''}>Kore (Studio AI - Clear Female)</option>
-          <option value="gemini:Puck" ${savedUri === 'gemini:Puck' ? 'selected' : ''}>Puck (Studio AI - Energetic Male)</option>
-          <option value="gemini:Charon" ${savedUri === 'gemini:Charon' ? 'selected' : ''}>Charon (Studio AI - Deep Male)</option>
-          <option value="gemini:Fenrir" ${savedUri === 'gemini:Fenrir' ? 'selected' : ''}>Fenrir (Studio AI - Expressive Male)</option>
-          <option value="gemini:Leda" ${savedUri === 'gemini:Leda' ? 'selected' : ''}>Leda (Studio AI - Professional Female)</option>
-          <option value="gemini:Zephyr" ${savedUri === 'gemini:Zephyr' ? 'selected' : ''}>Zephyr (Studio AI - Smooth Female)</option>
-          <option value="gemini:Orus" ${savedUri === 'gemini:Orus' ? 'selected' : ''}>Orus (Studio AI - Confident Male)</option>
+        <optgroup label="✨ شبیه‌ساز خودکار صدا (Voice Cloning)">
+          <option value="gemini:auto" ${savedUri === 'gemini:auto' ? 'selected' : ''}>Auto (شبیه‌ساز خودکار لحن و جنسیت گوینده ویدیو)</option>
+        </optgroup>
+        <optgroup label="👩 صداهای زن استودیویی (Female Neural Voices)">
+          <option value="gemini:Aoede" ${savedUri === 'gemini:Aoede' ? 'selected' : ''}>Aoede (زن — طبیعی، گرم و شفاف فارسی) [پیشنهادی]</option>
+          <option value="gemini:Kore" ${savedUri === 'gemini:Kore' ? 'selected' : ''}>Kore (زن — آرامش‌بخش، ملایم و دلنشین)</option>
+          <option value="gemini:Leda" ${savedUri === 'gemini:Leda' ? 'selected' : ''}>Leda (زن — رسا، شفاف و شاداب)</option>
+          <option value="gemini:Zephyr" ${savedUri === 'gemini:Zephyr' ? 'selected' : ''}>Zephyr (زن — لطیف، نرم و احساسی)</option>
+          <option value="gemini:Callisto" ${savedUri === 'gemini:Callisto' ? 'selected' : ''}>Callisto (زن — رسمی، محکم و خبری)</option>
+        </optgroup>
+        <optgroup label="👨 صداهای مرد استودیویی (Male Neural Voices)">
+          <option value="gemini:Puck" ${savedUri === 'gemini:Puck' ? 'selected' : ''}>Puck (مرد — پرانرژی، جوان و پویا) [پیشنهادی]</option>
+          <option value="gemini:Fenrir" ${savedUri === 'gemini:Fenrir' ? 'selected' : ''}>Fenrir (مرد — مقتدر، رسا و محکم)</option>
+          <option value="gemini:Charon" ${savedUri === 'gemini:Charon' ? 'selected' : ''}>Charon (مرد — بم، آرام و راوی مستند)</option>
+          <option value="gemini:Orpheus" ${savedUri === 'gemini:Orpheus' ? 'selected' : ''}>Orpheus (مرد — گرم، عمیق و رادیویی)</option>
         </optgroup>
       `;
 
