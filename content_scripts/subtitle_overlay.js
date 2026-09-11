@@ -291,11 +291,21 @@
       langBadgeEl.textContent = `OmniDub [${targetLang.toUpperCase()}]`;
     }
 
+    const rtlLangs = ['fa', 'ar', 'ur', 'he', 'ps', 'sd'];
+    const isRtl = rtlLangs.includes(targetLang?.toLowerCase());
+
     translatedEl.textContent = translated || '';
+    translatedEl.setAttribute('dir', isRtl ? 'rtl' : 'ltr');
+    translatedEl.style.textAlign = isRtl ? 'right' : 'center';
+    translatedEl.style.fontFamily = isRtl
+      ? '"Vazirmatn", "Segoe UI", Tahoma, Arial, sans-serif'
+      : '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
     if (showBilingual && original && original.trim()) {
       originalEl.textContent = original;
       originalEl.style.display = 'block';
+      originalEl.setAttribute('dir', 'ltr');
+      originalEl.style.textAlign = 'center';
     } else {
       originalEl.style.display = 'none';
     }

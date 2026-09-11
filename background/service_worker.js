@@ -131,9 +131,8 @@ async function handleStartRecording(config = {}) {
     return { error: 'Operation already in progress.' };
   }
 
-  // Check quota
-  const remainingQuota = await QuotaManager.getRemainingQuota();
-  if (remainingQuota <= 0) {
+  // Check quota (automatically bypassed in developer mode)
+  if (await QuotaManager.isExhausted()) {
     return { error: 'Daily free quota (45m) exhausted. Resets at midnight.' };
   }
 
@@ -400,14 +399,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const { recordingState } = await chrome.storage.session.get(['recordingState']);
     if (recordingState === 'recording') {
       const used = await QuotaManager.addUsage(6); // 6 seconds added
-      const remaining = Math.max(0, 45 * 60 - used);
-
       chrome.runtime.sendMessage({
         type: 'QUOTA_UPDATED',
         usedSeconds: used
       }).catch(() => {});
 
-      if (remaining <= 0) {
+      if (await QuotaManager.isExhausted()) {
         console.warn('%c[OmniDub SW ⚠️] Daily quota exhausted. Stopping stream.', 'color: #ef4444;');
         await handleStopRecording();
       }

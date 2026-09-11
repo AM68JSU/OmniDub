@@ -1,15 +1,19 @@
 /**
  * OmniDub - Popup UI Logic
  * Manifest V3 Compliant - Controls live dubbing, language selection, settings & API Key modal.
+ * Fully Internationalized (English Default & Persian Full Support).
  */
 
 import { SUPPORTED_LANGUAGES, filterLanguages, getLanguageByCode } from '../services/language_list.js';
+import { t, applyTranslations } from '../services/i18n.js';
 
-// DOM Elements
+// DOM Elements - Header & Brand
 const statusBadge = document.getElementById('status-badge');
 const apiStatusIndicator = document.getElementById('api-status-indicator');
 const missingKeyAlert = document.getElementById('missing-key-alert');
 const btnQuickConfig = document.getElementById('btn-quick-config');
+const btnLangEn = document.getElementById('btn-lang-en');
+const btnLangFa = document.getElementById('btn-lang-fa');
 
 // Language Dropdown Elements
 const dropdownTrigger = document.getElementById('dropdown-trigger');
@@ -33,6 +37,7 @@ const valVolume = document.getElementById('val-volume');
 const sliderSpeed = document.getElementById('slider-speed');
 const valSpeed = document.getElementById('val-speed');
 const selectTtsVoice = document.getElementById('select-tts-voice');
+const selectDuckLevel = document.getElementById('select-duck-level');
 const toggleSubtitles = document.getElementById('toggle-subtitles');
 const toggleBilingual = document.getElementById('toggle-bilingual');
 const toggleRecord = document.getElementById('toggle-record');
@@ -50,15 +55,13 @@ const btnCloseModal = document.getElementById('btn-close-modal');
 const apiKeyForm = document.getElementById('api-key-form');
 const inputApiKey = document.getElementById('input-api-key');
 const selectModel = document.getElementById('select-model');
-const selectTtsModel = document.getElementById('select-tts-model');
-const selectChunkDuration = document.getElementById('select-chunk-duration');
-const selectDuckLevel = document.getElementById('select-duck-level');
 const btnToggleKeyVisibility = document.getElementById('btn-toggle-key-visibility');
 const btnTestKey = document.getElementById('btn-test-key');
 const testKeyStatus = document.getElementById('test-key-status');
 
 // Local State
-let currentLang = 'fa';
+let uiLang = 'en'; // Default UI language is English
+let targetDubLang = 'fa'; // Default target translation language is Persian
 let recordingState = 'idle'; // 'idle' | 'starting' | 'recording' | 'stopping'
 let hasApiKey = false;
 const MAX_DAILY_SECONDS = 45 * 60; // 45 Minutes
@@ -66,8 +69,10 @@ const MAX_DAILY_SECONDS = 45 * 60; // 45 Minutes
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   await loadStoredSettings();
+  setupLanguageSwitcher();
   setupLanguageDropdown();
   setupVoiceSelector();
+  setupDuckLevelSelector();
   setupEventListeners();
   await syncRecordingState();
   updateQuotaUI();
@@ -78,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 async function loadStoredSettings() {
   const data = await chrome.storage.local.get([
+    'uiLang',
     'geminiApiKey',
     'geminiModel',
     'targetLang',
@@ -85,49 +91,41 @@ async function loadStoredSettings() {
     'volume',
     'speed',
     'voiceUri',
+    'duckLevel',
     'subtitles',
     'bilingual',
     'record',
     'allSites',
-    'quotaUsedSeconds',
-    'quotaLastReset'
+    'quotaUsedSeconds'
   ]);
+
+  // UI Language (Default to 'en')
+  uiLang = data.uiLang || 'en';
+  applyLocale(uiLang);
 
   // API Key & Model
   if (data.geminiApiKey && data.geminiApiKey.trim().length > 0) {
     hasApiKey = true;
     inputApiKey.value = data.geminiApiKey;
     apiStatusIndicator.classList.add('configured');
-    apiStatusIndicator.title = 'API Key Configured';
+    apiStatusIndicator.title = uiLang === 'fa' ? 'کلید تنظیم شده است' : 'API Key Configured';
     missingKeyAlert.style.display = 'none';
   } else {
     hasApiKey = false;
     apiStatusIndicator.classList.remove('configured');
-    apiStatusIndicator.title = 'API Key Required';
+    apiStatusIndicator.title = uiLang === 'fa' ? 'کلید API مورد نیاز است' : 'API Key Required';
     missingKeyAlert.style.display = 'flex';
   }
 
-  if (data.geminiModel) {
+  if (data.geminiModel && selectModel) {
     selectModel.value = data.geminiModel;
   }
 
-  if (data.ttsModel && selectTtsModel) {
-    selectTtsModel.value = data.ttsModel;
-  }
-
-  if (data.chunkDuration && selectChunkDuration) {
-    selectChunkDuration.value = data.chunkDuration;
-  }
-
-  if (data.duckLevel && selectDuckLevel) {
-    selectDuckLevel.value = data.duckLevel;
-  }
-
-  // Selected Language
+  // Selected Target Dubbing Language
   if (data.targetLang) {
-    currentLang = data.targetLang;
+    targetDubLang = data.targetLang;
   }
-  updateSelectedLanguageUI(currentLang);
+  updateSelectedLanguageUI(targetDubLang);
 
   // Toggles
   if (typeof data.dubbedAudio === 'boolean') toggleDubbedAudio.checked = data.dubbedAudio;
@@ -148,62 +146,126 @@ async function loadStoredSettings() {
 }
 
 /**
- * Populate Voice Selector dropdown with Studio Neural AI voices & available browser voices
+ * Setup and switch UI locale between English and Persian
+ */
+function setupLanguageSwitcher() {
+  btnLangEn.addEventListener('click', () => {
+    if (uiLang !== 'en') {
+      setLocale('en');
+    }
+  });
+
+  btnLangFa.addEventListener('click', () => {
+    if (uiLang !== 'fa') {
+      setLocale('fa');
+    }
+  });
+}
+
+async function setLocale(lang) {
+  uiLang = lang;
+  await chrome.storage.local.set({ uiLang: lang });
+  applyLocale(lang);
+}
+
+function applyLocale(lang) {
+  // Update Switcher Active Button State
+  if (lang === 'fa') {
+    btnLangFa.classList.add('active');
+    btnLangEn.classList.remove('active');
+  } else {
+    btnLangEn.classList.add('active');
+    btnLangFa.classList.remove('active');
+  }
+
+  // Apply all static translations to HTML tags
+  applyTranslations(lang);
+
+  // Update dynamic elements
+  setupVoiceSelector();
+  setupDuckLevelSelector();
+  applyRecordingState(recordingState);
+  updateQuotaUI();
+
+  // Update API status indicator tooltip
+  if (hasApiKey) {
+    apiStatusIndicator.title = lang === 'fa' ? 'کلید API تنظیم شده است' : 'API Key Configured';
+  } else {
+    apiStatusIndicator.title = lang === 'fa' ? 'کلید API مورد نیاز است' : 'API Key Required';
+  }
+}
+
+/**
+ * Populate Voice Selector dropdown with Studio Neural AI voices & offline browser voices
  */
 function setupVoiceSelector() {
   if (!selectTtsVoice) return;
 
-  const populate = () => {
-    chrome.storage.local.get(['voiceUri', 'aiVoice'], (data) => {
-      const savedUri = data.voiceUri || 'gemini:Aoede';
+  chrome.storage.local.get(['voiceUri'], (data) => {
+    const savedUri = data.voiceUri || 'gemini:Aoede';
 
-      selectTtsVoice.innerHTML = `
-        <optgroup label="✨ شبیه‌ساز خودکار صدا (Voice Cloning)">
-          <option value="gemini:auto" ${savedUri === 'gemini:auto' ? 'selected' : ''}>Auto (شبیه‌ساز خودکار لحن و جنسیت گوینده ویدیو)</option>
-        </optgroup>
-        <optgroup label="👩 صداهای زن استودیویی (Female Neural Voices)">
-          <option value="gemini:Aoede" ${savedUri === 'gemini:Aoede' ? 'selected' : ''}>Aoede (زن — طبیعی، گرم و شفاف فارسی) [پیشنهادی]</option>
-          <option value="gemini:Kore" ${savedUri === 'gemini:Kore' ? 'selected' : ''}>Kore (زن — آرامش‌بخش، ملایم و دلنشین)</option>
-          <option value="gemini:Leda" ${savedUri === 'gemini:Leda' ? 'selected' : ''}>Leda (زن — رسا، شفاف و شاداب)</option>
-          <option value="gemini:Zephyr" ${savedUri === 'gemini:Zephyr' ? 'selected' : ''}>Zephyr (زن — لطیف، نرم و احساسی)</option>
-          <option value="gemini:Callisto" ${savedUri === 'gemini:Callisto' ? 'selected' : ''}>Callisto (زن — رسمی، محکم و خبری)</option>
-        </optgroup>
-        <optgroup label="👨 صداهای مرد استودیویی (Male Neural Voices)">
-          <option value="gemini:Puck" ${savedUri === 'gemini:Puck' ? 'selected' : ''}>Puck (مرد — پرانرژی، جوان و پویا) [پیشنهادی]</option>
-          <option value="gemini:Fenrir" ${savedUri === 'gemini:Fenrir' ? 'selected' : ''}>Fenrir (مرد — مقتدر، رسا و محکم)</option>
-          <option value="gemini:Charon" ${savedUri === 'gemini:Charon' ? 'selected' : ''}>Charon (مرد — بم، آرام و راوی مستند)</option>
-          <option value="gemini:Orpheus" ${savedUri === 'gemini:Orpheus' ? 'selected' : ''}>Orpheus (مرد — گرم، عمیق و رادیویی)</option>
-        </optgroup>
-      `;
+    const groupAutoLabel = t('voiceGroupAuto', uiLang);
+    const autoOption = t('voiceAutoOption', uiLang);
+    const groupFemaleLabel = t('voiceGroupFemale', uiLang);
+    const groupMaleLabel = t('voiceGroupMale', uiLang);
+    const groupBrowserLabel = t('voiceGroupBrowser', uiLang);
 
-      if ('speechSynthesis' in window) {
-        const browserVoices = window.speechSynthesis.getVoices();
-        if (browserVoices.length > 0) {
-          const group = document.createElement('optgroup');
-          group.label = 'Browser System Voices (Offline)';
-          browserVoices.forEach((v) => {
-            const opt = document.createElement('option');
-            opt.value = v.voiceURI || v.name;
-            opt.textContent = `${v.name} (${v.lang})${v.default ? ' — Default' : ''}`;
-            if (opt.value === savedUri) opt.selected = true;
-            group.appendChild(opt);
-          });
-          selectTtsVoice.appendChild(group);
-        }
+    selectTtsVoice.innerHTML = `
+      <optgroup label="${groupAutoLabel}">
+        <option value="gemini:auto" ${savedUri === 'gemini:auto' ? 'selected' : ''}>${autoOption}</option>
+      </optgroup>
+      <optgroup label="${groupFemaleLabel}">
+        <option value="gemini:Aoede" ${savedUri === 'gemini:Aoede' ? 'selected' : ''}>${t('voiceAoede', uiLang)}</option>
+        <option value="gemini:Kore" ${savedUri === 'gemini:Kore' ? 'selected' : ''}>${t('voiceKore', uiLang)}</option>
+        <option value="gemini:Leda" ${savedUri === 'gemini:Leda' ? 'selected' : ''}>${t('voiceLeda', uiLang)}</option>
+        <option value="gemini:Zephyr" ${savedUri === 'gemini:Zephyr' ? 'selected' : ''}>${t('voiceZephyr', uiLang)}</option>
+        <option value="gemini:Callisto" ${savedUri === 'gemini:Callisto' ? 'selected' : ''}>${t('voiceCallisto', uiLang)}</option>
+      </optgroup>
+      <optgroup label="${groupMaleLabel}">
+        <option value="gemini:Puck" ${savedUri === 'gemini:Puck' ? 'selected' : ''}>${t('voicePuck', uiLang)}</option>
+        <option value="gemini:Fenrir" ${savedUri === 'gemini:Fenrir' ? 'selected' : ''}>${t('voiceFenrir', uiLang)}</option>
+        <option value="gemini:Charon" ${savedUri === 'gemini:Charon' ? 'selected' : ''}>${t('voiceCharon', uiLang)}</option>
+        <option value="gemini:Orpheus" ${savedUri === 'gemini:Orpheus' ? 'selected' : ''}>${t('voiceOrpheus', uiLang)}</option>
+      </optgroup>
+    `;
+
+    if ('speechSynthesis' in window) {
+      const browserVoices = window.speechSynthesis.getVoices();
+      if (browserVoices.length > 0) {
+        const group = document.createElement('optgroup');
+        group.label = groupBrowserLabel;
+        browserVoices.forEach((v) => {
+          const opt = document.createElement('option');
+          opt.value = v.voiceURI || v.name;
+          opt.textContent = `${v.name} (${v.lang})${v.default ? ' — Default' : ''}`;
+          if (opt.value === savedUri) opt.selected = true;
+          group.appendChild(opt);
+        });
+        selectTtsVoice.appendChild(group);
       }
-    });
-  };
+    }
+  });
 
-  populate();
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = populate;
+    window.speechSynthesis.onvoiceschanged = () => setupVoiceSelector();
   }
+}
 
-  selectTtsVoice.addEventListener('change', async (e) => {
-    const val = e.target.value;
-    const aiVoice = val.startsWith('gemini:') ? val.replace('gemini:', '') : 'Aoede';
-    await chrome.storage.local.set({ voiceUri: val, aiVoice });
-    broadcastSettings({ voiceUri: val, aiVoice });
+/**
+ * Populate Ducking Level Selector with localized options
+ */
+function setupDuckLevelSelector() {
+  if (!selectDuckLevel) return;
+
+  chrome.storage.local.get(['duckLevel'], (data) => {
+    const savedLevel = typeof data.duckLevel === 'number' ? String(data.duckLevel) : '0.05';
+
+    selectDuckLevel.innerHTML = `
+      <option value="0.05" ${savedLevel === '0.05' ? 'selected' : ''}>${t('duckOption5', uiLang)}</option>
+      <option value="0.0" ${savedLevel === '0.0' ? 'selected' : ''}>${t('duckOption0', uiLang)}</option>
+      <option value="0.15" ${savedLevel === '0.15' ? 'selected' : ''}>${t('duckOption15', uiLang)}</option>
+      <option value="0.25" ${savedLevel === '0.25' ? 'selected' : ''}>${t('duckOption25', uiLang)}</option>
+    `;
   });
 }
 
@@ -222,7 +284,7 @@ async function syncRecordingState() {
 }
 
 /**
- * Update UI for current recording state
+ * Update UI for current recording state with active localization
  */
 function applyRecordingState(state) {
   recordingState = state;
@@ -235,32 +297,32 @@ function applyRecordingState(state) {
     btnToggleDub.disabled = false;
     actionIcon.classList.add('hidden');
     audioWave.classList.remove('hidden');
-    actionText.textContent = 'Stop Live Dubbing';
-    statusBadge.textContent = 'Live Dubbing';
+    actionText.textContent = t('btnStopDubbing', uiLang);
+    statusBadge.textContent = t('statusLive', uiLang);
     statusBadge.classList.add('live');
   } else if (state === 'starting') {
     btnToggleDub.classList.add('btn-start');
     btnToggleDub.disabled = true;
     actionIcon.classList.remove('hidden');
     audioWave.classList.add('hidden');
-    actionText.textContent = 'Connecting...';
-    statusBadge.textContent = 'Connecting...';
+    actionText.textContent = t('statusConnecting', uiLang);
+    statusBadge.textContent = t('statusConnecting', uiLang);
     statusBadge.classList.add('connecting');
   } else if (state === 'stopping') {
     btnToggleDub.classList.add('btn-stop');
     btnToggleDub.disabled = true;
     actionIcon.classList.remove('hidden');
     audioWave.classList.add('hidden');
-    actionText.textContent = 'Stopping...';
-    statusBadge.textContent = 'Finishing...';
+    actionText.textContent = t('statusStopping', uiLang);
+    statusBadge.textContent = t('statusFinishing', uiLang);
   } else {
     // idle
     btnToggleDub.classList.add('btn-start');
     btnToggleDub.disabled = false;
     actionIcon.classList.remove('hidden');
     audioWave.classList.add('hidden');
-    actionText.textContent = 'Start Live Dubbing';
-    statusBadge.textContent = 'Ready';
+    actionText.textContent = t('btnStartDubbing', uiLang);
+    statusBadge.textContent = t('statusReady', uiLang);
   }
 }
 
@@ -310,14 +372,14 @@ function renderLanguageList(languages) {
     emptyLi.className = 'lang-item';
     emptyLi.style.justifyContent = 'center';
     emptyLi.style.color = '#64748b';
-    emptyLi.textContent = 'No language found';
+    emptyLi.textContent = t('noLangFound', uiLang);
     languageList.appendChild(emptyLi);
     return;
   }
 
   languages.forEach((lang) => {
     const li = document.createElement('li');
-    li.className = `lang-item ${lang.code === currentLang ? 'selected' : ''}`;
+    li.className = `lang-item ${lang.code === targetDubLang ? 'selected' : ''}`;
     li.setAttribute('role', 'option');
     li.setAttribute('data-code', lang.code);
 
@@ -329,11 +391,11 @@ function renderLanguageList(languages) {
           <span class="lang-item-sub">${lang.nativeName}</span>
         </div>
       </div>
-      ${lang.code === currentLang ? '<span class="lang-item-check">✓</span>' : `<span class="lang-code">${lang.code}</span>`}
+      ${lang.code === targetDubLang ? '<span class="lang-item-check">✓</span>' : `<span class="lang-code">${lang.code}</span>`}
     `;
 
     li.addEventListener('click', async () => {
-      currentLang = lang.code;
+      targetDubLang = lang.code;
       updateSelectedLanguageUI(lang.code);
       toggleDropdown(false);
       await chrome.storage.local.set({ targetLang: lang.code });
@@ -359,26 +421,39 @@ function updateSelectedLanguageUI(code) {
  * Setup event listeners for switches, sliders, buttons & modals
  */
 function setupEventListeners() {
-  // Start / Stop Dubbing Button
+  // Voice selection change
+  selectTtsVoice.addEventListener('change', async (e) => {
+    const val = e.target.value;
+    const aiVoice = val.startsWith('gemini:') ? val.replace('gemini:', '') : 'Aoede';
+    await chrome.storage.local.set({ voiceUri: val, aiVoice });
+    broadcastSettings({ voiceUri: val, aiVoice });
+  });
+
+  // Duck level selection change
+  selectDuckLevel.addEventListener('change', async (e) => {
+    const val = Number(e.target.value);
+    await chrome.storage.local.set({ duckLevel: val });
+    broadcastSettings({ duckLevel: val });
+  });
+
+  // Start / Stop Dubbing Action
   btnToggleDub.addEventListener('click', async () => {
     if (!hasApiKey) {
-      openApiModal('Please configure your Gemini API Key first to enable live AI dubbing.');
+      openApiModal(uiLang === 'fa' ? 'لطفاً ابتدا کلید API جمینای خود را وارد فرمایید.' : 'Please configure your Gemini API Key first to enable live AI dubbing.');
       return;
     }
 
     if (recordingState === 'idle') {
       applyRecordingState('starting');
       try {
-        const stored = await chrome.storage.local.get(['voiceUri', 'aiVoice', 'geminiModel', 'ttsModel', 'chunkDuration', 'duckLevel']);
+        const stored = await chrome.storage.local.get(['voiceUri', 'aiVoice', 'geminiModel', 'duckLevel']);
         const response = await chrome.runtime.sendMessage({
           type: 'START_RECORDING',
           config: {
-            targetLang: currentLang,
+            targetLang: targetDubLang,
             model: stored.geminiModel || selectModel.value || 'gemini-3.5-live-translate-preview',
-            ttsModel: stored.ttsModel || selectTtsModel?.value || 'gemini-2.5-flash-preview-tts',
             aiVoice: stored.aiVoice || (stored.voiceUri?.startsWith('gemini:') ? stored.voiceUri.replace('gemini:', '') : 'Aoede'),
-            chunkDuration: Number(stored.chunkDuration || selectChunkDuration?.value || 2.4),
-            duckLevel: Number(stored.duckLevel || selectDuckLevel?.value || 0.05),
+            duckLevel: typeof stored.duckLevel === 'number' ? stored.duckLevel : 0.05,
             dubbedAudio: toggleDubbedAudio.checked,
             subtitles: toggleSubtitles.checked,
             bilingual: toggleBilingual.checked,
@@ -391,7 +466,7 @@ function setupEventListeners() {
         });
 
         if (response && response.error) {
-          alert(`Could not start capture: ${response.error}`);
+          alert(`Error: ${response.error}`);
           applyRecordingState('idle');
         } else {
           applyRecordingState('recording');
@@ -453,14 +528,6 @@ function setupEventListeners() {
     broadcastSettings({ allSites: e.target.checked });
   });
 
-  if (selectDuckLevel) {
-    selectDuckLevel.addEventListener('change', async (e) => {
-      const val = Number(e.target.value);
-      await chrome.storage.local.set({ duckLevel: val });
-      broadcastSettings({ duckLevel: val });
-    });
-  }
-
   // Gemini API Key Modal
   btnApiModal.addEventListener('click', () => openApiModal());
   btnQuickConfig.addEventListener('click', () => openApiModal());
@@ -479,7 +546,7 @@ function setupEventListeners() {
   btnTestKey.addEventListener('click', async () => {
     const key = inputApiKey.value.trim();
     if (!key) {
-      showTestStatus('Please enter an API Key first.', 'error');
+      showTestStatus(t('testEnterKey', uiLang), 'error');
       return;
     }
 
@@ -487,7 +554,7 @@ function setupEventListeners() {
 
     // Test Gemini Live models via WebSocket
     if (model.includes('live')) {
-      showTestStatus(`Connecting to Gemini Live WebSocket for ${model}...`, 'testing');
+      showTestStatus(t('testConnectingWs', uiLang), 'testing');
       const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${encodeURIComponent(key)}`;
       let wsResolved = false;
 
@@ -521,11 +588,11 @@ function setupEventListeners() {
             console.log('%c[OmniDub WS Test Message]', 'color: #3b82f6;', data);
             if (data.setupComplete || data.setup_complete) {
               wsResolved = true;
-              showTestStatus(`Live Stream Connected! ${model} is active and ready for real-time dubbing.`, 'success');
+              showTestStatus(t('testWsSuccess', uiLang), 'success');
               ws.close(1000, 'Test completed');
             } else if (data.error) {
               wsResolved = true;
-              showTestStatus(`Validation Error: ${data.error.message || JSON.stringify(data.error)}`, 'error');
+              showTestStatus(t('testRestFailed', uiLang, { msg: data.error.message || JSON.stringify(data.error) }), 'error');
               ws.close();
             }
           } catch (err) {
@@ -533,19 +600,18 @@ function setupEventListeners() {
           }
         };
 
-        ws.onerror = (e) => {
+        ws.onerror = () => {
           if (!wsResolved) {
-            showTestStatus(`Live WebSocket connection error. Please verify network/VPN.`, 'error');
+            showTestStatus(t('testWsError', uiLang), 'error');
           }
         };
 
         ws.onclose = (e) => {
           if (!wsResolved) {
             if (e.code === 1000) {
-              // Code 1000 is WS_NORMAL_CLOSURE - connection and setup was clean!
-              showTestStatus(`Live Stream Connected! ${model} is active and verified.`, 'success');
+              showTestStatus(t('testWsSuccess', uiLang), 'success');
             } else {
-              showTestStatus(`Live connection closed (Code ${e.code}: ${e.reason || 'Check API key permissions'})`, 'error');
+              showTestStatus(t('testWsClosed', uiLang, { code: e.code, reason: e.reason || 'Authentication' }), 'error');
             }
           }
         };
@@ -553,36 +619,36 @@ function setupEventListeners() {
         setTimeout(() => {
           if (!wsResolved && ws.readyState === WebSocket.OPEN) {
             ws.close();
-            showTestStatus('Connection timed out. Please check network/VPN.', 'error');
+            showTestStatus(t('testWsTimeout', uiLang), 'error');
           }
         }, 7000);
       } catch (err) {
-        showTestStatus(`WebSocket initialization error: ${err.message}`, 'error');
+        showTestStatus(t('testNetworkError', uiLang, { msg: err.message }), 'error');
       }
       return;
     }
 
-    // Test Standard REST Models
-    showTestStatus(`Testing connection with ${model}...`, 'testing');
+    // Fallback Test Standard REST
+    showTestStatus(t('testTestingRest', uiLang), 'testing');
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Respond with "OK"' }] }]
+          contents: [{ parts: [{ text: 'OK' }] }]
         })
       });
 
       if (res.ok) {
-        showTestStatus(`Connection successful! ${model} is active and responding.`, 'success');
+        showTestStatus(t('testRestSuccess', uiLang), 'success');
       } else {
         const errorData = await res.json().catch(() => ({}));
-        const msg = errorData.error?.message || `HTTP ${res.status} Error`;
-        showTestStatus(`Validation failed: ${msg}`, 'error');
+        const msg = errorData.error?.message || `HTTP ${res.status}`;
+        showTestStatus(t('testRestFailed', uiLang, { msg }), 'error');
       }
     } catch (err) {
-      showTestStatus(`Network error: ${err.message}`, 'error');
+      showTestStatus(t('testNetworkError', uiLang, { msg: err.message }), 'error');
     }
   });
 
@@ -591,24 +657,20 @@ function setupEventListeners() {
     e.preventDefault();
     const key = inputApiKey.value.trim();
     const model = selectModel.value;
-    const ttsModel = selectTtsModel ? selectTtsModel.value : 'gemini-2.5-flash-preview-tts';
-    const chunkDuration = selectChunkDuration ? selectChunkDuration.value : '4.8';
 
     if (!key) return;
 
     await chrome.storage.local.set({
       geminiApiKey: key,
-      geminiModel: model,
-      ttsModel: ttsModel,
-      chunkDuration: chunkDuration
+      geminiModel: model
     });
 
     hasApiKey = true;
     apiStatusIndicator.classList.add('configured');
-    apiStatusIndicator.title = 'API Key Configured';
+    apiStatusIndicator.title = uiLang === 'fa' ? 'کلید API تنظیم شده است' : 'API Key Configured';
     missingKeyAlert.style.display = 'none';
 
-    broadcastSettings({ model, ttsModel, chunkDuration });
+    broadcastSettings({ model });
 
     apiModal.close();
     showTestStatus('', '');
@@ -653,9 +715,29 @@ function broadcastSettings(settings) {
 }
 
 /**
- * Quota UI calculation and timer
+ * Quota UI calculation and localized timer
+ * In unpacked developer mode, displays demo/unlimited badge with no restrictions!
  */
 async function updateQuotaUI(providedSeconds) {
+  const isDev = !chrome.runtime.getManifest().update_url;
+
+  if (isDev) {
+    const quotaTitleEl = document.querySelector('[data-i18n="titleDailyQuota"]');
+    if (quotaTitleEl) {
+      quotaTitleEl.textContent = t('titleDailyQuotaDev', uiLang);
+    }
+    quotaRemainingText.textContent = t('quotaUnlimitedDev', uiLang);
+    quotaRemainingText.style.color = '#38bdf8';
+    quotaProgressBar.style.width = '100%';
+    quotaProgressBar.style.background = 'linear-gradient(90deg, #38bdf8 0%, #6366f1 100%)';
+    quotaResetTimer.textContent = t('quotaResetsDev', uiLang);
+    const quotaTotalEl = document.querySelector('[data-i18n="quotaTotal"]');
+    if (quotaTotalEl) {
+      quotaTotalEl.textContent = t('quotaTotalDev', uiLang);
+    }
+    return;
+  }
+
   let used = providedSeconds;
   if (typeof used !== 'number') {
     const data = await chrome.storage.local.get(['quotaUsedSeconds']);
@@ -666,7 +748,7 @@ async function updateQuotaUI(providedSeconds) {
   const remainingMins = Math.floor(remaining / 60);
   const remainingSecs = remaining % 60;
 
-  quotaRemainingText.textContent = `${remainingMins}m ${remainingSecs}s remaining`;
+  quotaRemainingText.textContent = t('quotaRemaining', uiLang, { mins: remainingMins, secs: remainingSecs });
   const pct = Math.max(0, Math.min(100, (remaining / MAX_DAILY_SECONDS) * 100));
   quotaProgressBar.style.width = `${pct}%`;
 
@@ -683,5 +765,6 @@ async function updateQuotaUI(providedSeconds) {
   const diffMs = midnight - now;
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  quotaResetTimer.textContent = `Resets in: ${hours}h ${mins}m`;
+  quotaResetTimer.textContent = t('quotaResetsIn', uiLang, { hours, mins });
 }
+
