@@ -6,6 +6,7 @@
 
 const MAX_DAILY_SECONDS = 45 * 60; // 45 minutes daily free quota
 
+
 export class QuotaManager {
   /**
    * Check if running in unpacked/developer mode (no update_url in manifest)
