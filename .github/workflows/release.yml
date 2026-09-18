@@ -1,0 +1,53 @@
+name: Package & Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version from manifest.json
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Create Production Extension ZIP
+        run: |
+          ZIP_NAME="OmniDub-v${{ steps.get_version.outputs.VERSION }}.zip"
+          mkdir -p _staging
+          cp -r manifest.json icons popup background content_scripts offscreen services utils _staging/
+          cd _staging
+          zip -r "../$ZIP_NAME" .
+          cd ..
+          rm -rf _staging
+          echo "Package created: $ZIP_NAME"
+          ls -lh "$ZIP_NAME"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        with:
+          files: OmniDub-v${{ steps.get_version.outputs.VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifact (Workflow Run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmniDub-v${{ steps.get_version.outputs.VERSION }}
+          path: OmniDub-v${{ steps.get_version.outputs.VERSION }}.zip
+

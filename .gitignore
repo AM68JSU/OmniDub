@@ -1,5 +1,28 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
 
-/.vs
+# Visual Studio & VS Code IDE files
+/.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build & Packaging Staging
+_build_staging/
+*.log
+
+# Node / NPM (if any tooling is added)
+node_modules/
+npm-debug.log*
+
+# Sensitive data / Secrets
+*.pem
+*.crx
+.env
+.env.local
+

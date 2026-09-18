@@ -1,74 +1,220 @@
-# OmniDub (LivDub) - Live AI Video Dubbing & Subtitles Chrome Extension
+<p align="center">
+  <img src="icons/icon128.png" alt="OmniDub Logo" width="96" height="96" />
+</p>
 
-OmniDub is a Manifest V3 Google Chrome Extension that provides real-time AI dubbing and bilingual subtitles for web videos (YouTube, Coursera, Vimeo, Udemy, etc.) using Google Gemini API (`gemini-2.5-flash` or `gemini-3.7-flash`).
+<h1 align="center">OmniDub — Live AI Video Dubbing & Subtitles</h1>
+
+<p align="center">
+  <strong>Real-time AI dubbing, smart audio ducking, and bilingual subtitles for web videos powered by Google Gemini.</strong>
+</p>
+
+<p align="center">
+  <a href="README.md"><strong>🇺🇸 English</strong></a> •
+  <a href="README.fa.md"><strong>🇮🇷 فارسی (Persian)</strong></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Manifest-V3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Manifest V3" />
+  <img src="https://img.shields.io/badge/AI%20Engine-Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini" />
+  <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License MIT" />
+  <img src="https://img.shields.io/badge/Languages-50%2B-blue?style=for-the-badge" alt="50+ Languages" />
+  <img src="https://img.shields.io/badge/Version-1.0.0-orange?style=for-the-badge" alt="v1.0.0" />
+</p>
+
+---
+
+## 🌟 Overview
+
+**OmniDub** is a high-performance Google Chrome extension (Manifest V3) that brings **live AI voice dubbing** and **bilingual floating subtitles** to any web video player (YouTube, Coursera, Udemy, Vimeo, edX, podcasts, and more).
+
+Using the **Google Gemini API** (`gemini-2.5-flash` and Gemini Live real-time audio streams), OmniDub listens to tab audio, translates spoken content on the fly, speaks the translation with natural studio neural voices, and automatically ducks original video volume for a cinematic listening experience.
+
+---
+
+## 📸 Screenshots & UI Preview
+
+<p align="center">
+  <img src="docs/screenshots/omnidub-en-full.png" alt="OmniDub English UI" width="45%" style="margin-right: 15px;" />
+  <img src="docs/screenshots/omnidub-fa-full.png" alt="OmniDub Persian UI" width="45%" />
+</p>
+
+<p align="center">
+  <em>Modern glassmorphic control panel with instant one-click toggle between English (LTR) and Persian (RTL).</em>
+</p>
 
 ---
 
 ## 🚀 Key Features
 
-- **50+ Languages with Search & Flags**: Real-time searchable dropdown with country flags, ISO codes, and native language names (e.g. Persian / فارسی, Spanish, French, German, Arabic, Turkish, etc.).
-- **Live Tab Audio Capture**: Direct capture of tab audio using `chrome.tabCapture` & `Offscreen Document` without interrupting playback.
-- **Ultra-Low Latency AI**: Streams 2.8s audio segments to Google Gemini API (`gemini-2.5-flash` / `gemini-3.7-flash`) with structured JSON schema responses.
-- **Audio Ducking**: Automatically ducks web video volume down to 20% while the translated voice (TTS) is speaking, restoring normal volume immediately afterwards.
-- **Floating Draggable Subtitle Box**: High-contrast, customizable subtitle overlay that floats directly on top of video players, with optional bilingual view (original + translated).
-- **Subtitle & Audio Recording**: Automatically saves and downloads timestamped `.srt` subtitle files.
-- **Daily Quota Manager**: 45-minute daily free quota tracker with midnight automatic reset.
-- **Client-Side & Secure**: Uses your own Google Gemini API key stored securely in `chrome.storage.local`.
+- 🎙️ **Real-Time Live AI Dubbing**: Streams tab audio through an isolated Web Audio pipeline and translates speech with ultra-low latency.
+- 🌍 **50+ Languages Supported**: Searchable language selector with country flags, ISO codes, and native script names (Persian / فارسی, Spanish, French, German, Arabic, Turkish, Japanese, Korean, and more).
+- 🔊 **Smart Video Audio Ducking**: Automatically lowers the original video audio to 5% (customizable down to 0% mute or 15%/25%) while the AI is speaking, smoothly fading back to normal when silent.
+- ✨ **Studio Neural Voices & Voice Match**: Choose from expressively tuned neural voices (Aoede, Puck, Kore, Fenrir, Charon, etc.) or enable **Auto Voice Match** to automatically adapt tone, gender, and cadence.
+- 💬 **Floating Draggable Subtitles**: High-contrast, movable glassmorphic subtitle box rendered directly over any HTML5 video player. Supports bilingual mode (original transcript + translation side-by-side).
+- 💾 **Record & Export**: Automatically saves and downloads timestamped `.srt` subtitle files and dubbed audio sessions.
+- 🌐 **Instant Bilingual UI**: Seamlessly switch between English (LTR) and Persian (RTL) interface with full localization.
+- 🔒 **100% Client-Side & Private**: Your API keys and data remain securely stored inside your browser (`chrome.storage.local`). Direct communication with Google's API—no middleman proxies or tracking.
 
 ---
 
-## 📁 Architecture & File Structure
+## 📥 Installation & Quick Start
+
+### Method 1: Download Pre-built Release (Recommended for Users)
+
+1. Go to the [**Releases**](https://github.com/AM68JSU/OmniDub/releases) section of this repository.
+2. Download the latest `OmniDub-v1.0.0.zip` package.
+3. Extract the ZIP file into a permanent folder on your computer (e.g. `C:\Extensions\OmniDub` or `~/OmniDub`).
+4. Open Google Chrome and enter `chrome://extensions/` in the address bar.
+5. In the top-right corner, switch **Developer mode** to **ON**.
+6. Click the **Load unpacked** button in the top-left corner.
+7. Select the unzipped folder.
+8. Pin the **OmniDub** icon to your Chrome toolbar for quick access!
+
+---
+
+### Method 2: Install from Source (For Developers)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/AM68JSU/OmniDub.git
+
+# 2. Navigate to directory
+cd OmniDub
+
+# 3. Open Chrome Extensions
+# Go to chrome://extensions/ -> Enable "Developer mode" -> "Load unpacked" -> Select the OmniDub folder
+```
+
+---
+
+## 🔑 Getting Your Google Gemini API Key
+
+OmniDub connects directly to the official Google Gemini API:
+
+1. Visit [**Google AI Studio**](https://aistudio.google.com/app/apikey).
+2. Sign in with your Google Account.
+3. Click **Create API key** (free tier is available with generous daily quotas).
+4. Copy your API key.
+5. In Chrome, click the **OmniDub** icon, click the **⚙️ Settings** icon in the header, paste your key, and click **Save Settings**.
+6. Click **Test Connection** to verify your setup.
+
+> [!TIP]
+> Users in restricted geographic regions can use a standard VPN with access to Google AI Studio endpoints.
+
+---
+
+## 💡 How to Use
+
+1. **Open any video site** (e.g. [YouTube](https://www.youtube.com), [Coursera](https://www.coursera.org), [Udemy](https://www.udemy.com)).
+2. **Start playing the video**.
+3. Click the **OmniDub** extension icon from your browser toolbar.
+4. **Choose your Target Dubbing Language** from the dropdown (e.g., *Persian (Farsi)*).
+5. Configure your preferences:
+   - **TTS Volume & Speed**: Adjust speech loudness and cadence.
+   - **Dubbing Voice**: Pick female, male, or Auto voice cloning.
+   - **Original Video Ducking**: Set how much background audio to retain (default: 5% whisper).
+   - **Floating Subtitles**: Toggle on/off or enable bilingual subtitles.
+6. Click the big blue button: **▶ Start Live Dubbing**.
+7. Sit back and watch the video dubbed live in your language with real-time subtitles!
+8. Click **⏹ Stop Live Dubbing** when you finish. If *Record & Export* is enabled, your `.srt` file will download automatically.
+
+---
+
+## 🏗️ Architecture & Codebase
 
 ```text
 OmniDub/
 ├── manifest.json                 # Chrome Manifest V3 configuration
 ├── CHROMEWEBSTORE.md             # Chrome Web Store submission & permissions doc
-├── README.md                     # Documentation and setup guide
-├── icons/                        # Standard 16x16, 48x48, 128x128 icons
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
-├── popup/                        # Control Panel UI
-│   ├── popup.html                # Semantic HTML with glassmorphism design
-│   ├── popup.css                 # Dark theme, animations, visualizer
-│   └── popup.js                  # State sync, language filter, API modal
+├── README.md                     # Main English documentation
+├── README.fa.md                  # Persian documentation (راهنمای فارسی)
+├── LICENSE                       # MIT License
+├── icons/                        # Extension icons (16x16, 48x48, 128x128)
+├── popup/                        # User interface panel
+│   ├── popup.html                # Semantic UI with glassmorphism styling
+│   ├── popup.css                 # Dark theme, RTL/LTR styles, animations
+│   └── popup.js                  # UI controllers, language filtering, API modal
 ├── background/                   # Background Service Worker
-│   └── service_worker.js         # TabCapture, Offscreen lifecycle, Quota, Ducking
-├── offscreen/                    # Web Audio & Stream Processing
+│   └── service_worker.js         # TabCapture coordinator, offscreen lifecycle, audio ducking
+├── offscreen/                    # Isolated Web Audio stream processing
 │   ├── offscreen.html
-│   └── offscreen.js              # Audio slicing, 16kHz WAV encoding, Gemini REST
-├── content_scripts/              # In-Page Video Overlay
-│   ├── subtitle_overlay.css      # Floating subtitle box styles
-│   └── subtitle_overlay.js       # Draggable overlay & Video volume ducking
-├── services/                     # Core Business Logic
-│   ├── gemini_api.js             # Google Gemini API connector with JSON schema
-│   ├── tts_engine.js             # Speech synthesis queue with ducking hooks
+│   ├── offscreen.js              # Audio slicing, 16kHz WAV encoding, stream manager
+│   └── audio_processor.js        # AudioWorklet / buffer processor
+├── content_scripts/              # Video page injection
+│   ├── subtitle_overlay.css      # Floating subtitle overlay styles
+│   └── subtitle_overlay.js       # In-page draggable container & volume ducking
+├── services/                     # Business logic
+│   ├── gemini_api.js             # Google Gemini REST client with structured JSON schema
+│   ├── gemini_live_client.js     # Real-time WebSocket streaming client
+│   ├── tts_engine.js             # Speech synthesis queue & ducking coordinator
+│   ├── i18n.js                   # Internationalization engine (EN / FA)
 │   ├── language_list.js          # 50+ languages with ISO & BCP-47 codes
-│   └── quota_manager.js          # Daily usage calculator & reset logic
-└── utils/                        # Utilities
-    ├── audio_recorder.js         # Session recording & export manager
+│   └── quota_manager.js          # Daily free usage tracking & reset
+└── utils/                        # Helpers
+    ├── audio_recorder.js         # Live session recorder & WAV exporter
     └── srt_generator.js          # SubRip (.srt) subtitle formatter
 ```
 
 ---
 
-## 🛠️ Installation & Testing (Developer Mode)
+## 📦 Building & Packaging
 
-1. Open Google Chrome and navigate to `chrome://extensions/`.
-2. Turn ON the **Developer mode** toggle in the top right corner.
-3. Click the **Load unpacked** button.
-4. Select the `OmniDub` project folder (`d:\GitHubSource\OmniDub`).
-5. Pin the **OmniDub** icon to your Chrome toolbar.
+To generate a clean production ZIP archive for Chrome Web Store or GitHub Releases:
+
+```powershell
+# Run the included packaging script
+.\package-extension.ps1
+```
+
+This creates an optimized `OmniDub-v<version>.zip` ready for distribution.
 
 ---
 
-## ⚡ How to Use
+## 🔒 Security & Privacy
 
-1. Click the **OmniDub** icon in your toolbar.
-2. Click the gear icon (Settings) or the alert prompt to open the **Gemini API Settings** modal.
-3. Paste your [Google AI Studio API Key](https://aistudio.google.com/app/apikey) and click **Test Connection**, then **Save Settings**.
-4. Choose your target language (e.g., **Persian / فارسی**) from the searchable dropdown.
-5. Open any web video (e.g. YouTube).
-6. Click **Start Live Dubbing**.
-7. Watch the live subtitles float on screen and listen to the dubbed audio with automatic video ducking!
+- **No Remote Servers**: OmniDub operates 100% locally within your browser.
+- **Direct Google API**: All audio chunks and requests are transmitted directly between your browser and `https://generativelanguage.googleapis.com` via secure HTTPS/WSS.
+- **Local Storage**: Your API Key and preferences are stored exclusively on your device using Chrome's encrypted storage (`chrome.storage.local`).
+- **No telemetry, tracking, or advertisements**.
+
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+<details>
+<summary><strong>Q: Does OmniDub require a paid subscription?</strong></summary>
+No. OmniDub is open-source and free. You use your own Google Gemini API key from Google AI Studio, which provides a free tier suitable for personal use.
+</details>
+
+<details>
+<summary><strong>Q: Why does the video audio duck down when dubbing starts?</strong></summary>
+This is an intentional feature called <em>Audio Ducking</em>. It lowers the original foreign dialogue down to 5% so you can clearly understand the translated voice. You can adjust this level to 0% (full mute), 15%, or 25% in the popup.
+</details>
+
+<details>
+<summary><strong>Q: I live in Iran or a region where Google AI Studio is blocked. How can I use it?</strong></summary>
+Enable your VPN before starting dubbing so your browser can reach Google's `generativelanguage.googleapis.com` endpoint. Use the "Test Connection" button in OmniDub settings to verify connectivity.
+</details>
+
+<details>
+<summary><strong>Q: Which websites are supported?</strong></summary>
+Any website that plays HTML5 video! Tested thoroughly on YouTube, Coursera, Udemy, Vimeo, Khan Academy, Twitch, and direct MP4 streams.
+</details>
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome!  
+Feel free to check the [issues page](https://github.com/AM68JSU/OmniDub/issues) or read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+<p align="center">
+  Made with ❤️ for global knowledge sharing and accessibility.
+</p>
 
