@@ -33,13 +33,24 @@ Using the **Google Gemini API** (`gemini-2.5-flash` and Gemini Live real-time au
 
 ## 📸 Screenshots & UI Preview
 
+### 🇺🇸 English Interface (LTR)
 <p align="center">
-  <img src="docs/screenshots/omnidub-en-full.png" alt="OmniDub English UI" width="45%" style="margin-right: 15px;" />
-  <img src="docs/screenshots/omnidub-fa-full.png" alt="OmniDub Persian UI" width="45%" />
+  <img src="docs/screenshots/omnidub-en-full.png" alt="OmniDub English UI" width="420" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
 </p>
 
 <p align="center">
-  <em>Modern glassmorphic control panel with instant one-click toggle between English (LTR) and Persian (RTL).</em>
+  <em>Default English control panel with studio neural voices, ducking controls, and real-time settings.</em>
+</p>
+
+<br />
+
+### 🇮🇷 Persian Interface / رابط کاربری فارسی (RTL)
+<p align="center">
+  <img src="docs/screenshots/omnidub-fa-full.png" alt="OmniDub Persian UI" width="420" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
+</p>
+
+<p align="center">
+  <em>Full native Persian (RTL) localization with instant one-click toggle in the header.</em>
 </p>
 
 ---

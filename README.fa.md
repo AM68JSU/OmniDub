@@ -35,13 +35,24 @@
 
 ## 📸 تصاویر و رابط کاربری
 
+### 🇮🇷 رابط کاربری فارسی (راست‌چین)
 <p align="center">
-  <img src="docs/screenshots/omnidub-fa-full.png" alt="رابط کاربری فارسی OmniDub" width="45%" style="margin-left: 15px;" />
-  <img src="docs/screenshots/omnidub-en-full.png" alt="رابط کاربری انگلیسی OmniDub" width="45%" />
+  <img src="docs/screenshots/omnidub-fa-full.png" alt="رابط کاربری فارسی OmniDub" width="420" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
 </p>
 
 <p align="center">
-  <em>پنل شیشه‌ای مدرن با امکان تغییر آنی بین زبان فارسی (راست‌چین) و انگلیسی (چپ‌چین).</em>
+  <em>طراحی مدرن شیشه‌ای تیره با پشتیبانی کامل از زبان فارسی و چینش راست‌چین (RTL).</em>
+</p>
+
+<br />
+
+### 🇺🇸 رابط کاربری انگلیسی (چپ‌چین)
+<p align="center">
+  <img src="docs/screenshots/omnidub-en-full.png" alt="رابط کاربری انگلیسی OmniDub" width="420" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
+</p>
+
+<p align="center">
+  <em>رابط استاندارد انگلیسی با دکمه تغییر آنی زبان به فارسی در نوار بالای افزونه.</em>
 </p>
 
 ---
