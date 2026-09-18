@@ -37,7 +37,7 @@ Thank you for your interest in contributing to **OmniDub**! We welcome contribut
   - `i18n.js`: Internationalization engine (English & Persian).
   - `tts_engine.js`: Speech synthesis controller and audio ducking coordination.
   - `language_list.js`: 50+ supported languages with flags and codes.
-  - `quota_manager.js`: Daily session quota tracker.
+  - `quota_manager.js`: Unlimited usage engine.
 - `popup/`: Control panel interface (semantic HTML, glassmorphic CSS, popup logic).
 - `utils/`: SRT subtitle generator and audio export utilities.
 

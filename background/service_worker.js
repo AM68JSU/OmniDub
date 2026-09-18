@@ -131,11 +131,6 @@ async function handleStartRecording(config = {}) {
     return { error: 'Operation already in progress.' };
   }
 
-  // Check quota (automatically bypassed in developer mode)
-  if (await QuotaManager.isExhausted()) {
-    return { error: 'Daily free quota (45m) exhausted. Resets at midnight.' };
-  }
-
   // Get active tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) {
@@ -222,9 +217,6 @@ async function handleStartRecording(config = {}) {
     await chrome.action.setBadgeText({ text: 'LIVE' });
     await chrome.action.setBadgeBackgroundColor({ color: '#10B981' });
 
-    // Quota timer alarm
-    chrome.alarms.create('omnidub-quota-tick', { periodInMinutes: 0.1 }); // Every 6 seconds
-
     await chrome.storage.session.set({ recordingState: 'recording' });
     broadcastState('recording');
 
@@ -256,8 +248,7 @@ async function handleStopRecording() {
     // 3. Close offscreen document to free memory
     await closeOffscreenDocument();
 
-    // 4. Clear alarms & badge
-    chrome.alarms.clear('omnidub-quota-tick');
+    // 4. Clear badge
     await chrome.action.setBadgeText({ text: '' });
 
     // 5. Notify content script to restore volume and hide subtitles
@@ -390,27 +381,6 @@ async function handleSettingsUpdate(newSettings) {
     }).catch(() => {});
   }
 }
-
-/**
- * Quota consumption tick alarm
- */
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'omnidub-quota-tick') {
-    const { recordingState } = await chrome.storage.session.get(['recordingState']);
-    if (recordingState === 'recording') {
-      const used = await QuotaManager.addUsage(6); // 6 seconds added
-      chrome.runtime.sendMessage({
-        type: 'QUOTA_UPDATED',
-        usedSeconds: used
-      }).catch(() => {});
-
-      if (await QuotaManager.isExhausted()) {
-        console.warn('%c[OmniDub SW ⚠️] Daily quota exhausted. Stopping stream.', 'color: #ef4444;');
-        await handleStopRecording();
-      }
-    }
-  }
-});
 
 /**
  * Broadcast state changes to popup

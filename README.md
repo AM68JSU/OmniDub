@@ -149,7 +149,7 @@ OmniDub/
 │   ├── tts_engine.js             # Speech synthesis queue & ducking coordinator
 │   ├── i18n.js                   # Internationalization engine (EN / FA)
 │   ├── language_list.js          # 50+ languages with ISO & BCP-47 codes
-│   └── quota_manager.js          # Daily free usage tracking & reset
+│   └── quota_manager.js          # Unlimited usage engine (no session caps)
 └── utils/                        # Helpers
     ├── audio_recorder.js         # Live session recorder & WAV exporter
     └── srt_generator.js          # SubRip (.srt) subtitle formatter

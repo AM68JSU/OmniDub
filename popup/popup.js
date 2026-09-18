@@ -43,11 +43,6 @@ const toggleBilingual = document.getElementById('toggle-bilingual');
 const toggleRecord = document.getElementById('toggle-record');
 const toggleAllSites = document.getElementById('toggle-all-sites');
 
-// Quota Elements
-const quotaRemainingText = document.getElementById('quota-remaining-text');
-const quotaProgressBar = document.getElementById('quota-progress-bar');
-const quotaResetTimer = document.getElementById('quota-reset-timer');
-
 // Modal Elements
 const btnApiModal = document.getElementById('btn-api-modal');
 const apiModal = document.getElementById('api-modal');
@@ -64,7 +59,6 @@ let uiLang = 'en'; // Default UI language is English
 let targetDubLang = 'fa'; // Default target translation language is Persian
 let recordingState = 'idle'; // 'idle' | 'starting' | 'recording' | 'stopping'
 let hasApiKey = false;
-const MAX_DAILY_SECONDS = 45 * 60; // 45 Minutes
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -75,7 +69,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupDuckLevelSelector();
   setupEventListeners();
   await syncRecordingState();
-  updateQuotaUI();
 });
 
 /**
@@ -95,8 +88,7 @@ async function loadStoredSettings() {
     'subtitles',
     'bilingual',
     'record',
-    'allSites',
-    'quotaUsedSeconds'
+    'allSites'
   ]);
 
   // UI Language (Default to 'en')
@@ -185,7 +177,6 @@ function applyLocale(lang) {
   setupVoiceSelector();
   setupDuckLevelSelector();
   applyRecordingState(recordingState);
-  updateQuotaUI();
 
   // Update API status indicator tooltip
   if (hasApiKey) {
@@ -680,8 +671,6 @@ function setupEventListeners() {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'RECORDING_STATE_CHANGED') {
       applyRecordingState(message.state);
-    } else if (message.type === 'QUOTA_UPDATED') {
-      updateQuotaUI(message.usedSeconds);
     }
   });
 }
@@ -714,57 +703,8 @@ function broadcastSettings(settings) {
   }).catch(() => {});
 }
 
-/**
- * Quota UI calculation and localized timer
- * In unpacked developer mode, displays demo/unlimited badge with no restrictions!
- */
-async function updateQuotaUI(providedSeconds) {
-  const isDev = !chrome.runtime.getManifest().update_url;
+// Safety no-op for any legacy caller
+function updateQuotaUI() {}
 
-  if (isDev) {
-    const quotaTitleEl = document.querySelector('[data-i18n="titleDailyQuota"]');
-    if (quotaTitleEl) {
-      quotaTitleEl.textContent = t('titleDailyQuotaDev', uiLang);
-    }
-    quotaRemainingText.textContent = t('quotaUnlimitedDev', uiLang);
-    quotaRemainingText.style.color = '#38bdf8';
-    quotaProgressBar.style.width = '100%';
-    quotaProgressBar.style.background = 'linear-gradient(90deg, #38bdf8 0%, #6366f1 100%)';
-    quotaResetTimer.textContent = t('quotaResetsDev', uiLang);
-    const quotaTotalEl = document.querySelector('[data-i18n="quotaTotal"]');
-    if (quotaTotalEl) {
-      quotaTotalEl.textContent = t('quotaTotalDev', uiLang);
-    }
-    return;
-  }
 
-  let used = providedSeconds;
-  if (typeof used !== 'number') {
-    const data = await chrome.storage.local.get(['quotaUsedSeconds']);
-    used = data.quotaUsedSeconds || 0;
-  }
-
-  const remaining = Math.max(0, MAX_DAILY_SECONDS - used);
-  const remainingMins = Math.floor(remaining / 60);
-  const remainingSecs = remaining % 60;
-
-  quotaRemainingText.textContent = t('quotaRemaining', uiLang, { mins: remainingMins, secs: remainingSecs });
-  const pct = Math.max(0, Math.min(100, (remaining / MAX_DAILY_SECONDS) * 100));
-  quotaProgressBar.style.width = `${pct}%`;
-
-  if (pct < 15) {
-    quotaProgressBar.style.background = '#ef4444';
-  } else if (pct < 40) {
-    quotaProgressBar.style.background = '#f59e0b';
-  } else {
-    quotaProgressBar.style.background = 'linear-gradient(90deg, #10b981 0%, #6366f1 100%)';
-  }
-
-  const now = new Date();
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const diffMs = midnight - now;
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  quotaResetTimer.textContent = t('quotaResetsIn', uiLang, { hours, mins });
-}
 
